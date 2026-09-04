@@ -1,0 +1,81 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.email == 'aksingh020709@gmail.com' ||
+        request.auth.token.email == 'admin@jyadakharido.com' ||
+        request.auth.token.admin == true
+      );
+    }
+
+    // 1. Product Images: products/{productId}/images/{fileName} (Max 10MB)
+    match /products/{productId}/images/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin()
+        && request.resource.size <= 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // 2. Product Showcase Videos: products/{productId}/video/{fileName} (Strict 50MB max)
+    match /products/{productId}/video/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin()
+        && request.resource.size <= 50 * 1024 * 1024
+        && (
+          request.resource.contentType.matches('video/.*') ||
+          request.resource.contentType in ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-m4v']
+        );
+    }
+
+    // 3. Category Images: categories/{categoryId}/image/{fileName} (Max 10MB)
+    match /categories/{categoryId}/image/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin()
+        && request.resource.size <= 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // 4. Hero / Homepage Banners: hero/{fileName} (Max 15MB)
+    match /hero/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin()
+        && request.resource.size <= 15 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // 5. Festival Themes: festival/{festivalId}/{fileName} (Max 15MB)
+    match /festival/{festivalId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin()
+        && request.resource.size <= 15 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // 6. Blog Media: blogs/{blogId}/{fileName} (Max 10MB)
+    match /blogs/{blogId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin()
+        && request.resource.size <= 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // 7. General Brand Assets
+    match /brand/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin()
+        && request.resource.size <= 15 * 1024 * 1024;
+    }
+
+    // 8. Default Fallback: Public read, Admin write
+    match /{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}

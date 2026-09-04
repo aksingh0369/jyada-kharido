@@ -1,0 +1,95 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  h1, h2, h3, h4, .font-heading {
+    font-family: 'Outfit', sans-serif;
+  }
+}
+
+@keyframes floatSlow {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(1deg);
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    opacity: 0.8;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes festiveSparkle {
+  0% { transform: scale(0) rotate(0deg); opacity: 0; }
+  50% { transform: scale(1.2) rotate(180deg); opacity: 0.9; }
+  100% { transform: scale(0) rotate(360deg); opacity: 0; }
+}
+
+.animate-float-slow {
+  animation: floatSlow 5s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 4s ease-in-out infinite;
+}
+
+/* Glass & Card styles */
+.jk-card-shadow {
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.07), 0 4px 10px -5px rgba(0, 0, 0, 0.03);
+}
+
+.jk-card-hover {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.jk-card-hover:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 20px 35px -10px rgba(0, 0, 0, 0.12), 0 8px 16px -8px rgba(0, 0, 0, 0.05);
+}
+
+/* Amazon Affiliate Glow */
+.amazon-cta-btn {
+  background: linear-gradient(135deg, #FF9900 0%, #FF8000 100%);
+  color: #111827;
+  font-weight: 700;
+  transition: all 0.25s ease;
+  box-shadow: 0 4px 14px rgba(255, 153, 0, 0.35);
+}
+.amazon-cta-btn:hover {
+  background: linear-gradient(135deg, #FFA726 0%, #FF9100 100%);
+  box-shadow: 0 6px 20px rgba(255, 153, 0, 0.45);
+  transform: translateY(-2px);
+}
+
+/* Festival theme wrappers */
+.theme-diwali {
+  --festive-primary: #FFB300;
+  --festive-secondary: #FF3D00;
+}
+.theme-holi {
+  --festive-primary: #FF007F;
+  --festive-secondary: #00E5FF;
+}
+.theme-christmas {
+  --festive-primary: #E53935;
+  --festive-secondary: #2E7D32;
+}
+.theme-valentine {
+  --festive-primary: #E91E63;
+  --festive-secondary: #FF4081;
+}
+.theme-karvachauth {
+  --festive-primary: #C2185B;
+  --festive-secondary: #FFD54F;
+}
+

@@ -1,0 +1,1790 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  Package, 
+  Layers, 
+  Sparkles, 
+  Settings, 
+  FileText, 
+  Plus, 
+  Trash2, 
+  Edit3, 
+  Copy, 
+  Eye, 
+  EyeOff, 
+  Check, 
+  AlertCircle, 
+  Upload, 
+  ArrowUp, 
+  ArrowDown,
+  RotateCcw,
+  Film,
+  Activity,
+  ShieldCheck,
+  Link2,
+  ExternalLink,
+  ShoppingBag
+} from 'lucide-react';
+import { Product, Category, Festival, Blog, SiteSettings, PlatformAffiliateLink } from '../types';
+import { StorageService } from '../services/storageService';
+import { MediaService } from '../services/mediaService';
+import { MediaHealthAudit } from './MediaHealthAudit';
+import { SafeImage } from './SafeImage';
+
+interface DeveloperDashboardProps {
+  products: Product[];
+  categories: Category[];
+  festivals: Festival[];
+  blogs: Blog[];
+  settings: SiteSettings;
+  onRefreshData: () => void;
+  onClose: () => void;
+}
+
+export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
+  products,
+  categories,
+  festivals,
+  blogs,
+  settings,
+  onRefreshData,
+  onClose
+}) => {
+  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'festivals' | 'settings' | 'blogs' | 'media-health'>('products');
+
+  // Notification status
+  const [msg, setMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  const showNotification = (text: string, type: 'success' | 'error' = 'success') => {
+    setMsg({ text, type });
+    setTimeout(() => setMsg(null), 3500);
+  };
+
+  // PRODUCT STATE
+  const [editingProduct, setEditingProduct] = useState<Partial<Product> | null>(null);
+  const [specKey, setSpecKey] = useState('');
+  const [specVal, setSpecVal] = useState('');
+  const [newImageUrl, setNewImageUrl] = useState('');
+  const [imageUploadProgress, setImageUploadProgress] = useState<number | null>(null);
+  const [videoUploadProgress, setVideoUploadProgress] = useState<number | null>(null);
+
+  // MULTI-PLATFORM AFFILIATE LINKS STATE
+  const [newPlatform, setNewPlatform] = useState<PlatformAffiliateLink['platform']>('Flipkart');
+  const [newPlatformUrl, setNewPlatformUrl] = useState('');
+  const [newPlatformLabel, setNewPlatformLabel] = useState('');
+
+  // CATEGORY STATE
+  const [editingCategory, setEditingCategory] = useState<Partial<Category> | null>(null);
+  const [categoryImageProgress, setCategoryImageProgress] = useState<number | null>(null);
+
+  // FESTIVAL STATE
+  const [editingFestival, setEditingFestival] = useState<Festival | null>(null);
+
+  // BLOG STATE
+  const [editingBlog, setEditingBlog] = useState<Partial<Blog> | null>(null);
+
+  // SETTINGS STATE
+  const [siteSettingsForm, setSiteSettingsForm] = useState<SiteSettings>(settings);
+
+  // IN-APP CONFIRMATION MODAL STATE (Eliminates iframe-blocked window.confirm)
+  const [confirmModal, setConfirmModal] = useState<{
+    title: string;
+    message: string;
+    confirmText?: string;
+    danger?: boolean;
+    onConfirm: () => void;
+  } | null>(null);
+
+  useEffect(() => {
+    setSiteSettingsForm(settings);
+  }, [settings]);
+
+  // -------------------------------------------------------------
+  // PRODUCT HANDLERS
+  // -------------------------------------------------------------
+  const handleSaveProduct = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProduct || !editingProduct.name || !editingProduct.categoryId) {
+      showNotification('Please enter a product name and select a category.', 'error');
+      return;
+    }
+
+    const cat = categories.find(c => c.id === editingProduct.categoryId);
+    const catName = cat ? cat.name : editingProduct.categoryName || 'General';
+
+    StorageService.saveProduct({
+      ...editingProduct,
+      categoryName: catName
+    } as any);
+
+    setEditingProduct(null);
+    onRefreshData();
+    showNotification('Product successfully saved!');
+  };
+
+  const handleDuplicate = (id: string) => {
+    const copy = StorageService.duplicateProduct(id);
+    if (copy) {
+      onRefreshData();
+      showNotification(`Duplicated: ${copy.name}`);
+    }
+  };
+
+  const handleDeleteProduct = (id: string, name: string) => {
+    setConfirmModal({
+      title: 'Delete Product',
+      message: `Are you sure you want to permanently delete "${name}"? This action cannot be undone.`,
+      confirmText: 'Delete Product',
+      danger: true,
+      onConfirm: () => {
+        StorageService.deleteProduct(id);
+        onRefreshData();
+        showNotification('Product deleted.', 'success');
+      }
+    });
+  };
+
+  const handleToggleActive = (id: string) => {
+    const newState = StorageService.toggleProductActive(id);
+    onRefreshData();
+    showNotification(`Product is now ${newState ? 'Active & Visible' : 'Hidden'}.`);
+  };
+
+  const handleAddSpecification = () => {
+    if (specKey.trim() && specVal.trim() && editingProduct) {
+      setEditingProduct({
+        ...editingProduct,
+        specifications: {
+          ...(editingProduct.specifications || {}),
+          [specKey.trim()]: specVal.trim()
+        }
+      });
+      setSpecKey('');
+      setSpecVal('');
+    }
+  };
+
+  const handleRemoveSpecification = (key: string) => {
+    if (editingProduct && editingProduct.specifications) {
+      const updated = { ...editingProduct.specifications };
+      delete updated[key];
+      setEditingProduct({ ...editingProduct, specifications: updated });
+    }
+  };
+
+  const handleAddImageUrl = () => {
+    if (newImageUrl.trim() && editingProduct) {
+      const currentList = editingProduct.images || [];
+      const updated = [...currentList, newImageUrl.trim()];
+      setEditingProduct({
+        ...editingProduct,
+        images: updated,
+        primaryImage: editingProduct.primaryImage || newImageUrl.trim()
+      });
+      setNewImageUrl('');
+    }
+  };
+
+  const handleImageFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0 || !editingProduct) return;
+
+    const productId = editingProduct.id || 'temp-' + Date.now();
+    const currentList = [...(editingProduct.images || [])];
+
+    if (currentList.length + files.length > 20) {
+      showNotification('Maximum 20 images allowed per product gallery.', 'error');
+      return;
+    }
+
+    setImageUploadProgress(5);
+    const uploadedUrls: string[] = [];
+
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const res = await MediaService.uploadProductImage(
+          productId, 
+          file, 
+          (pct) => {
+            const overall = Math.round(((i + pct / 100) / files.length) * 100);
+            setImageUploadProgress(overall);
+          }
+        );
+        uploadedUrls.push(res.url);
+      }
+
+      const updated = [...currentList, ...uploadedUrls];
+      setEditingProduct({
+        ...editingProduct,
+        images: updated,
+        primaryImage: editingProduct.primaryImage || updated[0]
+      });
+      showNotification(`Successfully uploaded and validated ${uploadedUrls.length} image(s).`);
+    } catch (err: any) {
+      showNotification(err.message || 'Image upload failed', 'error');
+    } finally {
+      setImageUploadProgress(null);
+      e.target.value = '';
+    }
+  };
+
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !editingProduct) return;
+
+    // Check 50MB restriction
+    const validation = StorageService.validateVideoFile(file);
+    if (!validation.valid) {
+      showNotification(validation.error || 'Video file validation failed (Max 50MB)', 'error');
+      e.target.value = '';
+      return;
+    }
+
+    const productId = editingProduct.id || 'temp-' + Date.now();
+    setVideoUploadProgress(10);
+
+    try {
+      const res = await MediaService.uploadProductVideo(
+        productId,
+        file,
+        (pct) => setVideoUploadProgress(pct)
+      );
+      setEditingProduct({
+        ...editingProduct,
+        videoUrl: res.url
+      });
+      showNotification('Video uploaded successfully (within 50 MB limit).');
+    } catch (err: any) {
+      showNotification(err.message || 'Video upload failed', 'error');
+    } finally {
+      setVideoUploadProgress(null);
+      e.target.value = '';
+    }
+  };
+
+  const handleCategoryImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !editingCategory) return;
+
+    const catId = editingCategory.id || 'temp-' + Date.now();
+    setCategoryImageProgress(15);
+
+    try {
+      const res = await MediaService.uploadCategoryImage(
+        catId,
+        file,
+        (pct) => setCategoryImageProgress(pct)
+      );
+      setEditingCategory({
+        ...editingCategory,
+        image: res.url,
+        imageUrl: res.url
+      });
+      showNotification('Category presentation image uploaded successfully.');
+    } catch (err: any) {
+      showNotification(err.message || 'Category image upload failed', 'error');
+    } finally {
+      setCategoryImageProgress(null);
+      e.target.value = '';
+    }
+  };
+
+  const handleAddPlatformLink = () => {
+    if (!newPlatformUrl.trim() || !editingProduct) {
+      showNotification('Please enter an affiliate URL.', 'error');
+      return;
+    }
+
+    const currentLinks = editingProduct.platformLinks || [];
+    const newEntry: PlatformAffiliateLink = {
+      id: 'plat-' + Date.now(),
+      platform: newPlatform,
+      url: newPlatformUrl.trim(),
+      label: newPlatformLabel.trim() || undefined,
+      isPrimary: currentLinks.length === 0
+    };
+
+    setEditingProduct({
+      ...editingProduct,
+      platformLinks: [...currentLinks, newEntry]
+    });
+    setNewPlatformUrl('');
+    setNewPlatformLabel('');
+    showNotification(`Added ${newPlatform} affiliate link.`);
+  };
+
+  const handleRemovePlatformLink = (linkId: string) => {
+    if (!editingProduct || !editingProduct.platformLinks) return;
+    const updated = editingProduct.platformLinks.filter(l => l.id !== linkId);
+    setEditingProduct({
+      ...editingProduct,
+      platformLinks: updated
+    });
+  };
+
+  // -------------------------------------------------------------
+  // CATEGORY HANDLERS
+  // -------------------------------------------------------------
+  const handleSaveCategory = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCategory || !editingCategory.name) {
+      showNotification('Please enter a category name.', 'error');
+      return;
+    }
+
+    StorageService.saveCategory(editingCategory as any);
+    setEditingCategory(null);
+    onRefreshData();
+    showNotification('Category saved successfully!');
+  };
+
+  const handleDeleteCategory = (id: string, name: string) => {
+    setConfirmModal({
+      title: 'Delete Category',
+      message: `Are you sure you want to permanently delete category "${name}"? Products assigned to this category will not be lost, but the category tab will be removed.`,
+      confirmText: 'Delete Category',
+      danger: true,
+      onConfirm: () => {
+        StorageService.deleteCategory(id);
+        onRefreshData();
+        showNotification(`Category "${name}" removed successfully.`, 'success');
+      }
+    });
+  };
+
+  const handleReorderCategory = (index: number, direction: 'up' | 'down') => {
+    const newIdx = direction === 'up' ? index - 1 : index + 1;
+    if (newIdx < 0 || newIdx >= categories.length) return;
+
+    const updated = [...categories];
+    const temp = updated[index];
+    updated[index] = updated[newIdx];
+    updated[newIdx] = temp;
+
+    updated.forEach((c, idx) => {
+      c.displayOrder = idx + 1;
+      StorageService.saveCategory(c);
+    });
+
+    onRefreshData();
+    showNotification('Categories reordered.');
+  };
+
+  // -------------------------------------------------------------
+  // FESTIVAL HANDLERS
+  // -------------------------------------------------------------
+  const handleSaveFestival = (fest: Festival) => {
+    StorageService.saveFestival(fest);
+    setEditingFestival(null);
+    onRefreshData();
+    showNotification(`${fest.name} theme updated!`);
+  };
+
+  // -------------------------------------------------------------
+  // BLOG HANDLERS
+  // -------------------------------------------------------------
+  const handleSaveBlog = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingBlog || !editingBlog.title) {
+      showNotification('Please provide a blog title.', 'error');
+      return;
+    }
+    StorageService.saveBlog(editingBlog as any);
+    setEditingBlog(null);
+    onRefreshData();
+    showNotification('Article saved!');
+  };
+
+  const handleDeleteBlog = (id: string) => {
+    setConfirmModal({
+      title: 'Delete Article',
+      message: 'Are you sure you want to delete this blog article?',
+      confirmText: 'Delete Article',
+      danger: true,
+      onConfirm: () => {
+        StorageService.deleteBlog(id);
+        onRefreshData();
+        showNotification('Article deleted.', 'success');
+      }
+    });
+  };
+
+  // -------------------------------------------------------------
+  // SITE SETTINGS HANDLER
+  // -------------------------------------------------------------
+  const handleSaveSettings = (e: React.FormEvent) => {
+    e.preventDefault();
+    StorageService.saveSettings(siteSettingsForm);
+    onRefreshData();
+    showNotification('Site settings and branding updated!');
+  };
+
+  const handleResetData = () => {
+    setConfirmModal({
+      title: 'Reset Demo Catalog',
+      message: 'Are you sure you want to reset the catalog, categories, and settings back to initial sample state? Any custom products will be overwritten.',
+      confirmText: 'Reset Demo Data',
+      danger: true,
+      onConfirm: () => {
+        StorageService.resetToSeedData();
+        onRefreshData();
+        showNotification('Catalog reset to initial sample data.', 'success');
+      }
+    });
+  };
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" id="developer-dashboard-root">
+      
+      {/* Dashboard Top Header */}
+      <div className="bg-gray-900 text-white rounded-3xl p-6 sm:p-8 mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 text-xs font-bold uppercase tracking-wider">
+              Admin & Developer CMS
+            </span>
+            <span className="text-xs text-gray-400">v2.4.0</span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight mt-1">
+            Store Management Console
+          </h1>
+          <p className="text-xs text-gray-400 mt-1">
+            Manage Amazon affiliate catalog, bento categories, festival promotions, and live site metadata.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleResetData}
+            className="px-4 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
+            title="Reset to default seed data"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Reset Demo Data</span>
+          </button>
+          <button
+            onClick={onClose}
+            className="px-5 py-2 rounded-xl bg-white text-gray-900 hover:bg-gray-100 text-xs font-bold transition-colors cursor-pointer"
+          >
+            Exit Console
+          </button>
+        </div>
+      </div>
+
+      {/* Notification Toast */}
+      {msg && (
+        <div className={`mb-6 p-4 rounded-2xl flex items-center gap-2 text-xs font-bold shadow-md transition-all ${
+          msg.type === 'success' 
+            ? 'bg-emerald-50 border border-emerald-200 text-emerald-800' 
+            : 'bg-red-50 border border-red-200 text-red-800'
+        }`}>
+          {msg.type === 'success' ? <Check className="w-4 h-4 text-emerald-600" /> : <AlertCircle className="w-4 h-4 text-red-600" />}
+          <span>{msg.text}</span>
+        </div>
+      )}
+
+      {/* Navigation Tabs */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-4 mb-6 border-b border-gray-200 scrollbar-thin">
+        {[
+          { id: 'products', label: `Products (${products.length})`, icon: Package },
+          { id: 'categories', label: `Categories (${categories.length})`, icon: Layers },
+          { id: 'festivals', label: `Festivals (${festivals.length})`, icon: Sparkles },
+          { id: 'media-health', label: 'Media Health & Diagnostics', icon: ShieldCheck },
+          { id: 'settings', label: 'Site Settings & Branding', icon: Settings },
+          { id: 'blogs', label: `Blog Articles (${blogs.length})`, icon: FileText }
+        ].map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`px-4 py-2.5 rounded-2xl text-xs font-bold flex items-center gap-2 transition-all shrink-0 cursor-pointer ${
+                isActive
+                  ? 'bg-gray-950 text-white shadow-sm'
+                  : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200/80'
+              }`}
+            >
+              <Icon className={`w-4 h-4 ${isActive ? 'text-[#F52D56]' : 'text-gray-400'}`} />
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* TAB 1: PRODUCTS MANAGEMENT */}
+      {activeTab === 'products' && (
+        <div className="space-y-8">
+          
+          {/* Top Actions */}
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-black text-gray-900 uppercase">Product Inventory</h2>
+            <button
+              onClick={() => setEditingProduct({
+                name: '',
+                brand: '',
+                categoryId: categories[0]?.id || '',
+                categoryName: categories[0]?.name || '',
+                discountPercent: 20,
+                affiliateLink: 'https://www.amazon.in/?tag=jyadakharido-21',
+                shortDescription: '',
+                description: '',
+                images: [],
+                primaryImage: '',
+                specifications: { 'Connectivity': 'Bluetooth 5.3', 'Warranty': '1 Year Manufacturer' },
+                featured: false,
+                active: true,
+                isNew: true
+              })}
+              className="px-4 py-2 rounded-xl bg-[#F52D56] hover:bg-[#D82C4A] text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add New Product</span>
+            </button>
+          </div>
+
+          {/* EDIT / CREATE PRODUCT MODAL FORM */}
+          {editingProduct && (
+            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200 jk-card-shadow space-y-6">
+              <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+                <h3 className="text-lg font-black text-gray-900 uppercase">
+                  {editingProduct.id ? `Edit: ${editingProduct.name}` : 'Create New Product'}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setEditingProduct(null)}
+                  className="text-xs font-bold text-gray-500 hover:text-black cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveProduct} className="space-y-6">
+                
+                {/* Row 1: Basic Info */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Product Title *</label>
+                    <input
+                      type="text"
+                      value={editingProduct.name || ''}
+                      onChange={(e) => setEditingProduct({ ...editingProduct, name: e.target.value })}
+                      required
+                      placeholder="e.g. Beats Solo 4 Wireless Headphones"
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#F52D56]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Brand Name *</label>
+                    <input
+                      type="text"
+                      value={editingProduct.brand || ''}
+                      onChange={(e) => setEditingProduct({ ...editingProduct, brand: e.target.value })}
+                      required
+                      placeholder="e.g. Beats / Apple / Sony"
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#F52D56]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Category *</label>
+                    <select
+                      value={editingProduct.categoryId || ''}
+                      onChange={(e) => {
+                        const cat = categories.find(c => c.id === e.target.value);
+                        setEditingProduct({
+                          ...editingProduct,
+                          categoryId: e.target.value,
+                          categoryName: cat?.name || ''
+                        });
+                      }}
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#F52D56]"
+                    >
+                      {categories.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Row 2: Discount & Amazon Affiliate Link */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">
+                      Discount Percentage (%)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={95}
+                      value={editingProduct.discountPercent || 0}
+                      onChange={(e) => setEditingProduct({ ...editingProduct, discountPercent: Number(e.target.value) })}
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#F52D56]"
+                    />
+                    <p className="text-[10px] text-gray-400 mt-1">Displayed as e.g. "25% OFF" badge (prices strictly hidden)</p>
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-bold text-gray-700 mb-1">
+                      Amazon Affiliate Link * (with your Associate Tag)
+                    </label>
+                    <input
+                      type="url"
+                      value={editingProduct.affiliateLink || ''}
+                      onChange={(e) => setEditingProduct({ ...editingProduct, affiliateLink: e.target.value })}
+                      required
+                      placeholder="https://www.amazon.in/dp/...?tag=jyadakharido-21"
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#F52D56]"
+                    />
+                  </div>
+                </div>
+
+                {/* Descriptions */}
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Short Description</label>
+                    <input
+                      type="text"
+                      value={editingProduct.shortDescription || ''}
+                      onChange={(e) => setEditingProduct({ ...editingProduct, shortDescription: e.target.value })}
+                      placeholder="Punchy one-liner summarizing key highlights"
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#F52D56]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Full Detailed Description</label>
+                    <textarea
+                      rows={3}
+                      value={editingProduct.description || ''}
+                      onChange={(e) => setEditingProduct({ ...editingProduct, description: e.target.value })}
+                      placeholder="In-depth features, sound profile, ergonomics, etc."
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#F52D56] resize-none"
+                    />
+                  </div>
+                </div>
+
+                {/* MULTIPLE IMAGE GALLERY (Up to 20 images) */}
+                <div className="p-4 bg-gray-50 rounded-2xl border border-gray-200 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-xs font-bold text-gray-900 uppercase">Product Image Gallery</h4>
+                      <p className="text-[10px] text-gray-500">
+                        Supports up to 20 images. Validates format & size. Click to choose primary image.
+                      </p>
+                    </div>
+
+                    <label className="px-3 py-1.5 rounded-xl bg-white border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-100 flex items-center gap-1.5 cursor-pointer shadow-xs">
+                      <Upload className="w-3.5 h-3.5 text-gray-500" />
+                      <span>{imageUploadProgress !== null ? `Uploading (${imageUploadProgress}%)...` : 'Upload Images'}</span>
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/jpeg,image/png,image/webp"
+                        disabled={imageUploadProgress !== null}
+                        onChange={handleImageFileUpload}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+
+                  {imageUploadProgress !== null && (
+                    <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                      <div 
+                        className="bg-[#F52D56] h-1.5 rounded-full transition-all duration-200"
+                        style={{ width: `${imageUploadProgress}%` }}
+                      />
+                    </div>
+                  )}
+
+                  {/* Add by image URL */}
+                  <div className="flex gap-2">
+                    <input
+                      type="url"
+                      value={newImageUrl}
+                      onChange={(e) => setNewImageUrl(e.target.value)}
+                      placeholder="Or paste external image URL (Unsplash, Amazon S3, CDN)..."
+                      className="flex-1 px-3 py-1.5 bg-white border border-gray-200 rounded-xl text-xs"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddImageUrl}
+                      className="px-4 py-1.5 bg-gray-900 text-white rounded-xl text-xs font-bold hover:bg-black cursor-pointer"
+                    >
+                      Add URL
+                    </button>
+                  </div>
+
+                  {/* Thumbnails preview */}
+                  <div className="flex flex-wrap gap-3 pt-2">
+                    {(editingProduct.images || []).map((img, idx) => (
+                      <div key={idx} className="relative group w-20 h-20 rounded-xl bg-white border p-1 shrink-0 overflow-hidden">
+                        <SafeImage 
+                          src={img} 
+                          alt="preview" 
+                          type="product"
+                          entityId={editingProduct.id || 'new'}
+                          className="w-full h-full object-contain" 
+                        />
+                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 rounded-xl p-1">
+                          <button
+                            type="button"
+                            onClick={() => setEditingProduct({ ...editingProduct, primaryImage: img })}
+                            className={`text-[9px] font-bold px-1.5 py-0.5 rounded cursor-pointer ${
+                              editingProduct.primaryImage === img ? 'bg-emerald-500 text-white' : 'bg-white text-black'
+                            }`}
+                          >
+                            {editingProduct.primaryImage === img ? 'Primary' : 'Set Primary'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const filtered = (editingProduct.images || []).filter((_, i) => i !== idx);
+                              setEditingProduct({
+                                ...editingProduct,
+                                images: filtered,
+                                primaryImage: editingProduct.primaryImage === img ? filtered[0] : editingProduct.primaryImage
+                              });
+                            }}
+                            className="text-[9px] font-bold text-red-400 hover:text-red-200 cursor-pointer"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* VIDEO INTEGRATION & 50MB FILE VALIDATION */}
+                <div className="p-4 bg-gray-50 rounded-2xl border border-gray-200 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Film className="w-4 h-4 text-[#EB3B5A]" />
+                    <h4 className="text-xs font-bold text-gray-900 uppercase">Product Video (YouTube / Local MP4)</h4>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">YouTube Video Link</label>
+                      <input
+                        type="url"
+                        value={editingProduct.youtubeUrl || ''}
+                        onChange={(e) => setEditingProduct({ ...editingProduct, youtubeUrl: e.target.value })}
+                        placeholder="https://www.youtube.com/watch?v=..."
+                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">
+                        Upload Video (Strict Max 50 MB)
+                      </label>
+                      <input
+                        type="file"
+                        accept="video/mp4,video/webm,video/quicktime"
+                        disabled={videoUploadProgress !== null}
+                        onChange={handleVideoUpload}
+                        className="w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-gray-900 file:text-white hover:file:bg-black cursor-pointer"
+                      />
+                      {videoUploadProgress !== null && (
+                        <div className="w-full bg-gray-200 rounded-full h-1.5 mt-2 overflow-hidden">
+                          <div 
+                            className="bg-[#EB3B5A] h-1.5 rounded-full transition-all duration-200"
+                            style={{ width: `${videoUploadProgress}%` }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* MULTI-PLATFORM AFFILIATE LINKS MANAGER */}
+                <div className="p-4 bg-gray-50 rounded-2xl border border-gray-200 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Link2 className="w-4 h-4 text-[#EB3B5A]" />
+                    <h4 className="text-xs font-bold text-gray-900 uppercase">Multi-Platform Affiliate Links</h4>
+                  </div>
+                  <p className="text-[10px] text-gray-500">
+                    Add affiliate links for Amazon, Flipkart, Myntra, or Brand Official stores. The primary link is shown on cards and product banners.
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                    <select
+                      value={newPlatform}
+                      onChange={(e) => setNewPlatform(e.target.value as any)}
+                      className="px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold"
+                    >
+                      <option value="Amazon">Amazon</option>
+                      <option value="Flipkart">Flipkart</option>
+                      <option value="Myntra">Myntra</option>
+                      <option value="Official Store">Official Store</option>
+                      <option value="Croma">Croma</option>
+                      <option value="TataCliq">TataCliq</option>
+                      <option value="Other">Other Platform</option>
+                    </select>
+
+                    <input
+                      type="url"
+                      value={newPlatformUrl}
+                      onChange={(e) => setNewPlatformUrl(e.target.value)}
+                      placeholder="https://amzn.to/... or https://fkrt.it/..."
+                      className="sm:col-span-2 px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={handleAddPlatformLink}
+                      className="px-4 py-2 bg-[#F52D56] hover:bg-[#D82C4A] text-white rounded-xl text-xs font-bold cursor-pointer shadow-xs"
+                    >
+                      + Add Link
+                    </button>
+                  </div>
+
+                  {/* Added Platform Links List */}
+                  {(editingProduct.platformLinks && editingProduct.platformLinks.length > 0) && (
+                    <div className="space-y-1.5 pt-2">
+                      {editingProduct.platformLinks.map((platLink) => (
+                        <div 
+                          key={platLink.id}
+                          className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-gray-200 text-xs"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="font-bold text-gray-900 px-2 py-0.5 rounded-md bg-gray-100 text-[10px] uppercase">
+                              {platLink.platform}
+                            </span>
+                            <span className="text-gray-500 truncate text-[11px]">
+                              {platLink.url}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = (editingProduct.platformLinks || []).map(pl => ({
+                                  ...pl,
+                                  isPrimary: pl.id === platLink.id
+                                }));
+                                setEditingProduct({
+                                  ...editingProduct,
+                                  platformLinks: updated,
+                                  affiliateUrl: platLink.url
+                                });
+                              }}
+                              className={`px-2 py-0.5 rounded text-[9px] font-bold cursor-pointer ${
+                                platLink.isPrimary 
+                                  ? 'bg-emerald-500 text-white' 
+                                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                              }`}
+                            >
+                              {platLink.isPrimary ? 'Primary' : 'Make Primary'}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleRemovePlatformLink(platLink.id)}
+                              className="text-red-500 hover:text-red-700 cursor-pointer p-1"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* DYNAMIC SPECIFICATIONS */}
+                <div className="p-4 bg-gray-50 rounded-2xl border border-gray-200 space-y-3">
+                  <h4 className="text-xs font-bold text-gray-900 uppercase">Specifications Table</h4>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={specKey}
+                      onChange={(e) => setSpecKey(e.target.value)}
+                      placeholder="Spec Key (e.g. Battery Life)"
+                      className="w-1/2 px-3 py-1.5 bg-white border border-gray-200 rounded-xl text-xs"
+                    />
+                    <input
+                      type="text"
+                      value={specVal}
+                      onChange={(e) => setSpecVal(e.target.value)}
+                      placeholder="Spec Value (e.g. Up to 50 Hours)"
+                      className="w-1/2 px-3 py-1.5 bg-white border border-gray-200 rounded-xl text-xs"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddSpecification}
+                      className="px-4 py-1.5 bg-gray-900 text-white rounded-xl text-xs font-bold hover:bg-black cursor-pointer"
+                    >
+                      Add Spec
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
+                    {Object.entries(editingProduct.specifications || {}).map(([k, v]) => (
+                      <div key={k} className="flex items-center justify-between p-2 bg-white rounded-xl border border-gray-200 text-xs">
+                        <span className="font-semibold text-gray-600">{k}:</span>
+                        <span className="font-bold text-gray-900 truncate mx-2">{v}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSpecification(k)}
+                          className="text-red-500 hover:text-red-700 cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Toggles */}
+                <div className="flex flex-wrap gap-6 pt-2">
+                  <label className="flex items-center gap-2 text-xs font-bold text-gray-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editingProduct.featured || false}
+                      onChange={(e) => setEditingProduct({ ...editingProduct, featured: e.target.checked })}
+                      className="rounded text-[#F52D56] focus:ring-[#F52D56]"
+                    />
+                    <span>Featured in Top Carousel</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 text-xs font-bold text-gray-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editingProduct.isNew || false}
+                      onChange={(e) => setEditingProduct({ ...editingProduct, isNew: e.target.checked })}
+                      className="rounded text-[#F52D56] focus:ring-[#F52D56]"
+                    />
+                    <span>New Arrival Badge</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 text-xs font-bold text-gray-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editingProduct.active !== false}
+                      onChange={(e) => setEditingProduct({ ...editingProduct, active: e.target.checked })}
+                      className="rounded text-[#F52D56] focus:ring-[#F52D56]"
+                    />
+                    <span>Active (Visible on Website)</span>
+                  </label>
+                </div>
+
+                {/* Submit button */}
+                <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                  <button
+                    type="button"
+                    onClick={() => setEditingProduct(null)}
+                    className="px-5 py-2.5 rounded-xl border border-gray-300 text-xs font-bold hover:bg-gray-50 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-6 py-2.5 rounded-xl bg-[#F52D56] hover:bg-[#D82C4A] text-white text-xs font-bold shadow-md cursor-pointer"
+                  >
+                    Save Product Changes
+                  </button>
+                </div>
+
+              </form>
+            </div>
+          )}
+
+          {/* PRODUCT INVENTORY TABLE */}
+          <div className="bg-white rounded-3xl border border-gray-200/80 overflow-hidden jk-card-shadow">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200 text-gray-500 font-extrabold uppercase tracking-wider">
+                    <th className="p-4">Product</th>
+                    <th className="p-4">Category</th>
+                    <th className="p-4">Discount</th>
+                    <th className="p-4">Affiliate Status</th>
+                    <th className="p-4">Visibility</th>
+                    <th className="p-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 font-medium">
+                  {products.map((prod) => (
+                    <tr key={prod.id} className="hover:bg-gray-50/80 transition-colors">
+                      <td className="p-4 flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-xl bg-gray-100 p-1.5 shrink-0 flex items-center justify-center">
+                          <img
+                            src={prod.primaryImage}
+                            alt={prod.name}
+                            className="max-h-full max-w-full object-contain"
+                          />
+                        </div>
+                        <div className="min-w-0 max-w-xs">
+                          <p className="font-bold text-gray-900 truncate">{prod.name}</p>
+                          <p className="text-[10px] text-gray-400 uppercase font-bold">{prod.brand}</p>
+                        </div>
+                      </td>
+
+                      <td className="p-4 text-gray-600 font-semibold">
+                        {prod.categoryName}
+                      </td>
+
+                      <td className="p-4">
+                        <span className="px-2 py-0.5 rounded-md bg-rose-50 text-[#F52D56] font-bold">
+                          {prod.discountPercent}% OFF
+                        </span>
+                      </td>
+
+                      <td className="p-4">
+                        <span className="inline-flex items-center gap-1 text-emerald-700 font-bold">
+                          <Check className="w-3.5 h-3.5" />
+                          Tag Active
+                        </span>
+                      </td>
+
+                      <td className="p-4">
+                        <button
+                          onClick={() => handleToggleActive(prod.id)}
+                          className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider inline-flex items-center gap-1 cursor-pointer ${
+                            prod.active 
+                              ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' 
+                              : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                          }`}
+                        >
+                          {prod.active ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                          <span>{prod.active ? 'Visible' : 'Hidden'}</span>
+                        </button>
+                      </td>
+
+                      <td className="p-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => setEditingProduct(prod)}
+                            className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+                            title="Edit Product"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDuplicate(prod.id)}
+                            className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                            title="Duplicate Product"
+                          >
+                            <Copy className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteProduct(prod.id, prod.name)}
+                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                            title="Delete Product"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      )}
+
+      {/* TAB 2: CATEGORIES MANAGEMENT */}
+      {activeTab === 'categories' && (
+        <div className="space-y-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-black text-gray-900 uppercase">Category Collections</h2>
+              <p className="text-xs text-gray-500">Configure Bento card colors, headings, images, and reordering.</p>
+            </div>
+            <button
+              onClick={() => setEditingCategory({
+                name: '',
+                slug: '',
+                shortLabel: 'Trending',
+                description: '',
+                image: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=800&auto=format&fit=crop&q=80',
+                bgColor: '#18191B',
+                textColor: '#FFFFFF',
+                accentColor: '#EB3B5A',
+                buttonText: 'Browse'
+              })}
+              className="px-4 py-2 rounded-xl bg-[#F52D56] hover:bg-[#D82C4A] text-white text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Category</span>
+            </button>
+          </div>
+
+          {/* EDIT CATEGORY MODAL */}
+          {editingCategory && (
+            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200 jk-card-shadow space-y-4">
+              <h3 className="text-lg font-black text-gray-900 uppercase">
+                {editingCategory.id ? 'Edit Category' : 'New Bento Category'}
+              </h3>
+
+              <form onSubmit={handleSaveCategory} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Category Title *</label>
+                    <input
+                      type="text"
+                      value={editingCategory.name || ''}
+                      onChange={(e) => setEditingCategory({ ...editingCategory, name: e.target.value })}
+                      required
+                      placeholder="e.g. Smart Watch"
+                      className="w-full px-3 py-2 bg-gray-50 border rounded-xl text-xs font-semibold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Short Eyebrow Label</label>
+                    <input
+                      type="text"
+                      value={editingCategory.shortLabel || ''}
+                      onChange={(e) => setEditingCategory({ ...editingCategory, shortLabel: e.target.value })}
+                      placeholder="e.g. New or Wearable"
+                      className="w-full px-3 py-2 bg-gray-50 border rounded-xl text-xs font-semibold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Button Text</label>
+                    <input
+                      type="text"
+                      value={editingCategory.buttonText || 'Browse'}
+                      onChange={(e) => setEditingCategory({ ...editingCategory, buttonText: e.target.value })}
+                      className="w-full px-3 py-2 bg-gray-50 border rounded-xl text-xs font-semibold"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Background Color Hex</label>
+                    <div className="flex gap-2 items-center">
+                      <input
+                        type="color"
+                        value={editingCategory.bgColor || '#18191B'}
+                        onChange={(e) => setEditingCategory({ ...editingCategory, bgColor: e.target.value })}
+                        className="w-9 h-9 rounded-xl border p-1 cursor-pointer"
+                      />
+                      <input
+                        type="text"
+                        value={editingCategory.bgColor || '#18191B'}
+                        onChange={(e) => setEditingCategory({ ...editingCategory, bgColor: e.target.value })}
+                        className="w-full px-3 py-2 bg-gray-50 border rounded-xl text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Text Color Hex</label>
+                    <div className="flex gap-2 items-center">
+                      <input
+                        type="color"
+                        value={editingCategory.textColor || '#FFFFFF'}
+                        onChange={(e) => setEditingCategory({ ...editingCategory, textColor: e.target.value })}
+                        className="w-9 h-9 rounded-xl border p-1 cursor-pointer"
+                      />
+                      <input
+                        type="text"
+                        value={editingCategory.textColor || '#FFFFFF'}
+                        onChange={(e) => setEditingCategory({ ...editingCategory, textColor: e.target.value })}
+                        className="w-full px-3 py-2 bg-gray-50 border rounded-xl text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Button Accent Color Hex</label>
+                    <div className="flex gap-2 items-center">
+                      <input
+                        type="color"
+                        value={editingCategory.accentColor || '#EB3B5A'}
+                        onChange={(e) => setEditingCategory({ ...editingCategory, accentColor: e.target.value })}
+                        className="w-9 h-9 rounded-xl border p-1 cursor-pointer"
+                      />
+                      <input
+                        type="text"
+                        value={editingCategory.accentColor || '#EB3B5A'}
+                        onChange={(e) => setEditingCategory({ ...editingCategory, accentColor: e.target.value })}
+                        className="w-full px-3 py-2 bg-gray-50 border rounded-xl text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* CATEGORY IMAGE WITH FILE UPLOAD & PREVIEW */}
+                <div className="p-4 bg-gray-50 rounded-2xl border border-gray-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-900 uppercase">Category Presentation Image</label>
+                      <p className="text-[10px] text-gray-500">Transparent PNG or 3D product illustration recommended</p>
+                    </div>
+
+                    <label className="px-3 py-1.5 rounded-xl bg-white border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-100 flex items-center gap-1.5 cursor-pointer shadow-xs">
+                      <Upload className="w-3.5 h-3.5 text-gray-500" />
+                      <span>{categoryImageProgress !== null ? `Uploading (${categoryImageProgress}%)...` : 'Upload Image File'}</span>
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        disabled={categoryImageProgress !== null}
+                        onChange={handleCategoryImageUpload}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+
+                  {categoryImageProgress !== null && (
+                    <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                      <div 
+                        className="bg-[#F52D56] h-1.5 rounded-full transition-all duration-200"
+                        style={{ width: `${categoryImageProgress}%` }}
+                      />
+                    </div>
+                  )}
+
+                  <div className="flex gap-3 items-center">
+                    <div className="w-16 h-16 rounded-xl bg-gray-900 p-2 flex items-center justify-center shrink-0 border border-gray-200">
+                      <SafeImage
+                        src={editingCategory.image || editingCategory.imageUrl}
+                        alt="Category Preview"
+                        type="category"
+                        entityId={editingCategory.id || 'new'}
+                        className="max-h-full max-w-full object-contain"
+                      />
+                    </div>
+
+                    <input
+                      type="url"
+                      value={editingCategory.image || editingCategory.imageUrl || ''}
+                      onChange={(e) => setEditingCategory({ 
+                        ...editingCategory, 
+                        image: e.target.value,
+                        imageUrl: e.target.value
+                      })}
+                      required
+                      placeholder="https://... (Direct image URL or transparent PNG)"
+                      className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-4 border-t border-gray-100 mt-2">
+                  {editingCategory.id ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const id = editingCategory.id!;
+                        const name = editingCategory.name || 'Category';
+                        setEditingCategory(null);
+                        handleDeleteCategory(id, name);
+                      }}
+                      className="px-4 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      <span>Delete This Category</span>
+                    </button>
+                  ) : (
+                    <div />
+                  )}
+
+                  <div className="flex items-center gap-2 justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setEditingCategory(null)}
+                      className="px-4 py-2.5 border border-gray-200 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 cursor-pointer transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-5 py-2.5 bg-gray-900 text-white rounded-xl text-xs font-bold hover:bg-black cursor-pointer transition-colors shadow-xs"
+                    >
+                      Save Category
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* CATEGORIES LIST */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {categories.map((cat, idx) => (
+              <div 
+                key={cat.id} 
+                className="rounded-2xl p-5 border flex items-center justify-between shadow-xs"
+                style={{ backgroundColor: cat.bgColor, color: cat.textColor }}
+              >
+                <div className="space-y-1 max-w-[60%]">
+                  <span className="text-[10px] font-bold uppercase tracking-wider opacity-80">{cat.shortLabel}</span>
+                  <h4 className="text-lg font-black uppercase leading-tight">{cat.name}</h4>
+                  <span className="text-[10px] opacity-70">Order #{idx + 1}</span>
+                </div>
+
+                <div className="flex flex-col items-end gap-2">
+                  <img src={cat.image} alt={cat.name} className="w-14 h-14 object-contain" />
+                  
+                  <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1.5 mt-2">
+                    <div className="flex items-center gap-1 bg-black/40 backdrop-blur-sm p-1 rounded-lg">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); handleReorderCategory(idx, 'up'); }}
+                        disabled={idx === 0}
+                        className="p-1 text-white hover:text-rose-300 disabled:opacity-30 cursor-pointer"
+                        title="Move Up"
+                      >
+                        <ArrowUp className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); handleReorderCategory(idx, 'down'); }}
+                        disabled={idx === categories.length - 1}
+                        className="p-1 text-white hover:text-rose-300 disabled:opacity-30 cursor-pointer"
+                        title="Move Down"
+                      >
+                        <ArrowDown className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setEditingCategory(cat); }}
+                        className="px-2.5 py-1.5 rounded-lg bg-black/50 hover:bg-black/70 text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-xs"
+                        title="Edit Category Details"
+                      >
+                        <Edit3 className="w-3.5 h-3.5 text-amber-300" />
+                        <span>Edit</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); handleDeleteCategory(cat.id, cat.name); }}
+                        className="px-2.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-xs"
+                        title="Delete Category"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Delete</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: FESTIVALS MANAGEMENT */}
+      {activeTab === 'festivals' && (
+        <div className="space-y-8">
+          <div>
+            <h2 className="text-xl font-black text-gray-900 uppercase">Festival Themes & Automations</h2>
+            <p className="text-xs text-gray-500">
+              Configure automatic date ranges for Diwali, Holi, Eid, Christmas, and Mega Sales.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {festivals.map((fest) => (
+              <div 
+                key={fest.id}
+                className="bg-white rounded-3xl p-6 border border-gray-200 jk-card-shadow space-y-4"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div 
+                      className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shadow-xs"
+                      style={{ background: fest.bannerBg }}
+                    >
+                      <Sparkles className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-black text-gray-900">{fest.name}</h3>
+                      <p className="text-xs text-gray-500 font-semibold">Active window: {fest.startMonthDay} to {fest.endMonthDay}</p>
+                    </div>
+                  </div>
+
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={fest.enabled}
+                      onChange={(e) => handleSaveFestival({ ...fest, enabled: e.target.checked })}
+                      className="rounded text-[#F52D56] focus:ring-[#F52D56]"
+                    />
+                    <span className="text-xs font-bold text-gray-700">Enabled</span>
+                  </label>
+                </div>
+
+                <div 
+                  className="rounded-2xl p-4 text-white text-xs space-y-1 shadow-inner"
+                  style={{ background: fest.bannerBg }}
+                >
+                  <p className="font-bold text-[10px] uppercase tracking-wider opacity-80">Banner Preview</p>
+                  <h4 className="text-lg font-black uppercase">{fest.bannerHeadline}</h4>
+                  <p className="opacity-90">{fest.bannerSubtext}</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-500 mb-1">Start (MM-DD)</label>
+                    <input
+                      type="text"
+                      value={fest.startMonthDay}
+                      onChange={(e) => handleSaveFestival({ ...fest, startMonthDay: e.target.value })}
+                      className="w-full px-2.5 py-1.5 bg-gray-50 border rounded-lg font-mono text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-500 mb-1">End (MM-DD)</label>
+                    <input
+                      type="text"
+                      value={fest.endMonthDay}
+                      onChange={(e) => handleSaveFestival({ ...fest, endMonthDay: e.target.value })}
+                      className="w-full px-2.5 py-1.5 bg-gray-50 border rounded-lg font-mono text-xs"
+                    />
+                  </div>
+                </div>
+
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* TAB: MEDIA HEALTH & DIAGNOSTICS */}
+      {activeTab === 'media-health' && (
+        <MediaHealthAudit
+          onRefreshData={onRefreshData}
+          showNotification={showNotification}
+        />
+      )}
+
+      {/* TAB 4: SITE SETTINGS & BRANDING */}
+      {activeTab === 'settings' && (
+        <div className="space-y-8">
+          <div>
+            <h2 className="text-xl font-black text-gray-900 uppercase">Site Settings & Global Branding</h2>
+            <p className="text-xs text-gray-500">Customize hero copy, contact details, social URLs, and affiliate disclaimers.</p>
+          </div>
+
+          <form onSubmit={handleSaveSettings} className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200 jk-card-shadow space-y-6">
+            
+            {/* Hero Configuration */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-black text-gray-900 uppercase border-b pb-2">Hero Banner Customization</h3>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Hero Subheading</label>
+                  <input
+                    type="text"
+                    value={siteSettingsForm.heroSubheading}
+                    onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, heroSubheading: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-50 border rounded-xl text-xs font-semibold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Hero Big Title</label>
+                  <input
+                    type="text"
+                    value={siteSettingsForm.heroHeading}
+                    onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, heroHeading: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-50 border rounded-xl text-xs font-semibold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Watermark Badge</label>
+                  <input
+                    type="text"
+                    value={siteSettingsForm.heroBadge}
+                    onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, heroBadge: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-50 border rounded-xl text-xs font-semibold"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Hero Floating Image URL</label>
+                <input
+                  type="url"
+                  value={siteSettingsForm.heroImage}
+                  onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, heroImage: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-50 border rounded-xl text-xs"
+                />
+              </div>
+            </div>
+
+            {/* Festival Override */}
+            <div className="space-y-4 pt-4 border-t">
+              <h3 className="text-sm font-black text-gray-900 uppercase">Active Festival Override</h3>
+              <select
+                value={siteSettingsForm.activeFestivalOverride || 'auto'}
+                onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, activeFestivalOverride: e.target.value })}
+                className="w-full sm:w-80 px-3 py-2 bg-gray-50 border rounded-xl text-xs font-bold"
+              >
+                <option value="auto">Automatic (Based on current calendar dates)</option>
+                <option value="none">None (Standard theme year-round)</option>
+                {festivals.map(f => (
+                  <option key={f.id} value={f.theme}>Force Active: {f.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Amazon Direct Affiliate Store URL */}
+            <div className="space-y-4 pt-4 border-t">
+              <div className="flex items-center gap-2">
+                <ShoppingBag className="w-4 h-4 text-[#FF9900]" />
+                <h3 className="text-sm font-black text-gray-900 uppercase">Top Navbar "Amazon ↗" Affiliate Link</h3>
+              </div>
+              <p className="text-xs text-gray-500">
+                This link opens when visitors click the "Amazon ↗" button in the navigation header. Insert your official Amazon affiliate link or store URL here.
+              </p>
+              <input
+                type="url"
+                value={siteSettingsForm.amazonStoreUrl || ''}
+                onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, amazonStoreUrl: e.target.value })}
+                placeholder="https://link.amazon/B0eiXrBNR"
+                className="w-full px-3 py-2 bg-gray-50 border rounded-xl text-xs font-semibold text-gray-800"
+              />
+            </div>
+
+            {/* Affiliate & Legal */}
+            <div className="space-y-4 pt-4 border-t">
+              <h3 className="text-sm font-black text-gray-900 uppercase">Amazon Affiliate Mandatory Disclosure</h3>
+              <textarea
+                rows={3}
+                value={siteSettingsForm.affiliateDisclosure}
+                onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, affiliateDisclosure: e.target.value })}
+                className="w-full px-3 py-2 bg-gray-50 border rounded-xl text-xs leading-relaxed resize-none"
+              />
+            </div>
+
+            {/* Contact Details */}
+            <div className="space-y-4 pt-4 border-t">
+              <h3 className="text-sm font-black text-gray-900 uppercase">Support & Contact Info</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Support Email</label>
+                  <input
+                    type="email"
+                    value={siteSettingsForm.contactEmail}
+                    onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, contactEmail: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-50 border rounded-xl text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Direct Phone</label>
+                  <input
+                    type="text"
+                    value={siteSettingsForm.contactPhone}
+                    onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, contactPhone: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-50 border rounded-xl text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Office Location</label>
+                  <input
+                    type="text"
+                    value={siteSettingsForm.contactAddress}
+                    onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, contactAddress: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-50 border rounded-xl text-xs"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-4 border-t">
+              <button
+                type="submit"
+                className="px-8 py-3 rounded-full bg-[#F52D56] hover:bg-[#D82C4A] text-white text-xs font-bold shadow-md cursor-pointer"
+              >
+                Save All Site Settings
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* TAB 5: BLOG ARTICLES */}
+      {activeTab === 'blogs' && (
+        <div className="space-y-8">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-black text-gray-900 uppercase">Blog Editorial Journal</h2>
+            <button
+              onClick={() => setEditingBlog({
+                title: '',
+                category: 'Gadgets',
+                excerpt: '',
+                content: '',
+                image: 'https://images.unsplash.com/photo-1510519138161-58474ebf8996?w=800&auto=format&fit=crop&q=80',
+                readTime: '4 min read'
+              })}
+              className="px-4 py-2 rounded-xl bg-[#F52D56] hover:bg-[#D82C4A] text-white text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Write Article</span>
+            </button>
+          </div>
+
+          {editingBlog && (
+            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200 jk-card-shadow space-y-4">
+              <h3 className="text-lg font-black text-gray-900 uppercase">
+                {editingBlog.id ? 'Edit Article' : 'Compose New Article'}
+              </h3>
+
+              <form onSubmit={handleSaveBlog} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Article Title *</label>
+                    <input
+                      type="text"
+                      value={editingBlog.title || ''}
+                      onChange={(e) => setEditingBlog({ ...editingBlog, title: e.target.value })}
+                      required
+                      className="w-full px-3 py-2 bg-gray-50 border rounded-xl text-xs font-semibold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Category</label>
+                    <input
+                      type="text"
+                      value={editingBlog.category || 'Tech'}
+                      onChange={(e) => setEditingBlog({ ...editingBlog, category: e.target.value })}
+                      className="w-full px-3 py-2 bg-gray-50 border rounded-xl text-xs font-semibold"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Summary Excerpt</label>
+                  <input
+                    type="text"
+                    value={editingBlog.excerpt || ''}
+                    onChange={(e) => setEditingBlog({ ...editingBlog, excerpt: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-50 border rounded-xl text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Cover Image URL</label>
+                  <input
+                    type="url"
+                    value={editingBlog.image || ''}
+                    onChange={(e) => setEditingBlog({ ...editingBlog, image: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-50 border rounded-xl text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Article Body Content</label>
+                  <textarea
+                    rows={6}
+                    value={editingBlog.content || ''}
+                    onChange={(e) => setEditingBlog({ ...editingBlog, content: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-50 border rounded-xl text-xs leading-relaxed resize-none"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingBlog(null)}
+                    className="px-4 py-2 border rounded-xl text-xs font-bold cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-gray-900 text-white rounded-xl text-xs font-bold hover:bg-black cursor-pointer"
+                  >
+                    Publish Article
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {blogs.map((b) => (
+              <div key={b.id} className="bg-white rounded-3xl p-5 border border-gray-200 jk-card-shadow flex flex-col justify-between">
+                <div>
+                  <img src={b.image} alt={b.title} className="w-full h-36 object-cover rounded-2xl mb-3" />
+                  <span className="text-[10px] font-bold text-[#F52D56] uppercase tracking-wider">{b.category}</span>
+                  <h4 className="text-sm font-bold text-gray-900 line-clamp-2 mt-1">{b.title}</h4>
+                </div>
+
+                <div className="flex items-center justify-between pt-4 border-t mt-4 text-xs">
+                  <button
+                    onClick={() => setEditingBlog(b)}
+                    className="font-bold text-gray-700 hover:text-black cursor-pointer"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDeleteBlog(b.id)}
+                    className="text-red-500 hover:text-red-700 cursor-pointer"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* UNIVERSAL IN-APP CONFIRMATION MODAL */}
+      {confirmModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-sm w-full space-y-4 shadow-2xl border border-gray-200 animate-in fade-in zoom-in-95 duration-150">
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto ${
+              confirmModal.danger ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-800'
+            }`}>
+              <AlertCircle className="w-6 h-6" />
+            </div>
+            
+            <div className="text-center space-y-1.5">
+              <h3 className="text-base font-black text-gray-900 uppercase tracking-tight">
+                {confirmModal.title}
+              </h3>
+              <p className="text-xs text-gray-600 leading-relaxed">
+                {confirmModal.message}
+              </p>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmModal(null)}
+                className="flex-1 py-2.5 px-4 rounded-xl border border-gray-200 text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const action = confirmModal.onConfirm;
+                  setConfirmModal(null);
+                  action();
+                }}
+                className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold text-white transition-colors cursor-pointer shadow-sm ${
+                  confirmModal.danger ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-900 hover:bg-black'
+                }`}
+              >
+                {confirmModal.confirmText || 'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+};

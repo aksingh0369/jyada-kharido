@@ -1,0 +1,67 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.email == 'aksingh020709@gmail.com' ||
+        request.auth.token.email == 'admin@jyadakharido.com' ||
+        request.auth.token.admin == true ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // 1. PRODUCTS COLLECTION
+    // Public can read active products; Admins have full access
+    match /products/{productId} {
+      allow read: if resource.data.active == true || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // 2. CATEGORIES COLLECTION
+    // Public can browse categories; Admins can create/edit/reorder
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // 3. FESTIVALS & SEASONAL THEMES
+    // Public can read active festival config; Admins can toggle and update
+    match /festivals/{festivalId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // 4. BLOGS / SHOPPING GUIDES
+    // Public can read blog articles; Admins can publish & edit
+    match /blogs/{blogId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // 5. SITE SETTINGS & BRAND METADATA
+    // Public can read branding & banners; Admins can modify
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // 6. USER PROFILES & WISHLISTS
+    // Users can read and update their own profile; Admins can view
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+  }
+}
