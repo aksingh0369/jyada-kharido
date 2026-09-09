@@ -396,14 +396,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     images: [
       'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=900&auto=format&fit=crop&q=80',
       'https://images.unsplash.com/photo-1546868871-7041f2a55e12?w=900&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1508685096489-7aacd43bd3b1?w=900&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1510017803434-a899398421b3?w=900&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1579586337278-3befd40fd17a?w=900&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1434493789847-2f02dc6ca35d?w=900&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=900&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=900&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1533139502658-0198f920d8e8?w=900&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=900&auto=format&fit=crop&q=80'
+      'https://images.unsplash.com/photo-1508685096489-7aacd43bd3b1?w=900&auto=format&fit=crop&q=80'
     ],
     youtubeUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
     specifications: {
@@ -417,6 +410,201 @@ export const INITIAL_PRODUCTS: Product[] = [
     isNew: false,
     createdAt: '2026-08-16T10:00:00.000Z',
     updatedAt: '2026-09-01T10:00:00.000Z'
+  },
+  {
+    id: 'prod-airpods-pro-2',
+    name: 'Apple AirPods Pro (2nd Gen) with MagSafe Case USB-C',
+    brand: 'Apple',
+    categoryId: 'cat-earphones',
+    categoryName: 'Earphones',
+    subcategory: 'True Wireless',
+    shortDescription: 'Up to 2x more Active Noise Cancellation, Transparency mode, and Adaptive Audio with Personalized Spatial Audio.',
+    description: 'Powered by the Apple H2 headphone chip, AirPods Pro push advanced audio performance even further with richer bass, crystal-clear sound, and next-level Active Noise Cancellation.',
+    discountPercent: 18,
+    affiliateLink: 'https://www.amazon.in/s?k=apple+airpods+pro+2+usbc&tag=jyadakharido-21',
+    primaryImage: 'https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?w=900&auto=format&fit=crop&q=80',
+    images: [
+      'https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?w=900&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1572536147248-ac59a8abfa4b?w=900&auto=format&fit=crop&q=80'
+    ],
+    youtubeUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    specifications: {
+      'Chip': 'Apple H2 headphone chip, Apple U1 chip in MagSafe Charging Case',
+      'ANC': 'Active Noise Cancellation with Adaptive Transparency',
+      'Battery': 'Up to 6 hours listening time with ANC on, up to 30 hours total with case',
+      'Resistance': 'IP54 dust, sweat, and water resistant'
+    },
+    featured: true,
+    active: true,
+    isNew: true,
+    createdAt: '2026-08-28T10:00:00.000Z',
+    updatedAt: '2026-09-03T10:00:00.000Z'
+  },
+  {
+    id: 'prod-bose-qc45',
+    name: 'Bose QuietComfort 45 Bluetooth Wireless Noise Cancelling Headphones',
+    brand: 'Bose',
+    categoryId: 'cat-earphones',
+    categoryName: 'Earphones',
+    subcategory: 'Over-Ear Headphones',
+    shortDescription: 'Iconic quiet, comfort, and sound. TriPort acoustic architecture delivers deep, full audio with Quiet & Aware modes.',
+    description: 'The perfect balance of quiet, comfort, and sound. Bose QuietComfort 45 wireless headphones use tiny microphones to measure, compare, and react to outside noise, then cancel it with opposite signals.',
+    discountPercent: 24,
+    affiliateLink: 'https://www.amazon.in/s?k=bose+quietcomfort+45&tag=jyadakharido-21',
+    primaryImage: 'https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=900&auto=format&fit=crop&q=80',
+    images: [
+      'https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=900&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=900&auto=format&fit=crop&q=80'
+    ],
+    youtubeUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    specifications: {
+      'Brand': 'Bose',
+      'Model': 'QuietComfort 45',
+      'Battery Life': 'Up to 22 Hours',
+      'Charging': 'USB-C quick charge (15 mins = 3 hours)'
+    },
+    featured: false,
+    active: true,
+    isNew: false,
+    createdAt: '2026-08-20T10:00:00.000Z',
+    updatedAt: '2026-09-02T10:00:00.000Z'
+  },
+  {
+    id: 'prod-galaxy-watch-6',
+    name: 'Samsung Galaxy Watch 6 Bluetooth 44mm Smartwatch',
+    brand: 'Samsung',
+    categoryId: 'cat-watches',
+    categoryName: 'Gadgets',
+    subcategory: 'Smartwatches',
+    shortDescription: 'Sapphire crystal glass display with 20% larger screen and advanced sleep & heart coaching.',
+    description: 'Track workouts, heart rhythms, body composition, and detailed sleep stages on the vibrant Super AMOLED display of Galaxy Watch 6.',
+    discountPercent: 22,
+    affiliateLink: 'https://www.amazon.in/s?k=samsung+galaxy+watch+6&tag=jyadakharido-21',
+    primaryImage: 'https://images.unsplash.com/photo-1508685096489-7aacd43bd3b1?w=900&auto=format&fit=crop&q=80',
+    images: [
+      'https://images.unsplash.com/photo-1508685096489-7aacd43bd3b1?w=900&auto=format&fit=crop&q=80'
+    ],
+    youtubeUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    specifications: {
+      'Screen': '1.5-inch Super AMOLED 480x480',
+      'Processor': 'Exynos W930 Dual-core 1.4GHz',
+      'Durability': '5ATM + IP68 / MIL-STD-810H'
+    },
+    featured: false,
+    active: true,
+    isNew: true,
+    createdAt: '2026-08-22T10:00:00.000Z',
+    updatedAt: '2026-09-02T10:00:00.000Z'
+  },
+  {
+    id: 'prod-macbook-air-m3',
+    name: 'Apple MacBook Air 15-inch M3 Chip 16GB RAM 512GB SSD',
+    brand: 'Apple',
+    categoryId: 'cat-laptops',
+    categoryName: 'Laptop',
+    subcategory: 'Ultrabooks',
+    shortDescription: 'Strikingly thin and fast with up to 18 hours battery life, Liquid Retina display, and MagSafe 3.',
+    description: 'MacBook Air sails through work and play with the blazing M3 chip. With a spacious 15.3-inch Liquid Retina display, silent fanless design, and support for up to two external displays.',
+    discountPercent: 10,
+    affiliateLink: 'https://www.amazon.in/s?k=macbook+air+15+m3&tag=jyadakharido-21',
+    primaryImage: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=900&auto=format&fit=crop&q=80',
+    images: [
+      'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=900&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?w=900&auto=format&fit=crop&q=80'
+    ],
+    youtubeUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    specifications: {
+      'Processor': 'Apple M3 8-core CPU, 10-core GPU',
+      'Memory': '16GB Unified Memory',
+      'Storage': '512GB Ultrafast SSD',
+      'Display': '15.3-inch Liquid Retina with True Tone'
+    },
+    featured: true,
+    active: true,
+    isNew: true,
+    createdAt: '2026-08-25T10:00:00.000Z',
+    updatedAt: '2026-09-03T10:00:00.000Z'
+  },
+  {
+    id: 'prod-xbox-series-x',
+    name: 'Xbox Series X 1TB Gaming Console 4K 120FPS',
+    brand: 'Microsoft',
+    categoryId: 'cat-gaming',
+    categoryName: 'Console',
+    subcategory: 'Gaming Consoles',
+    shortDescription: 'The fastest, most powerful Xbox ever. Explore rich new worlds with 12 teraflops of raw graphic processing power.',
+    description: 'Xbox Series X delivers sensational smooth frame rates of up to 120FPS with the visual pop of HDR. Immerse yourself with sharper characters, brighter worlds, and impossible details with true 4K gaming.',
+    discountPercent: 15,
+    affiliateLink: 'https://www.amazon.in/s?k=xbox+series+x&tag=jyadakharido-21',
+    primaryImage: 'https://images.unsplash.com/photo-1605901309584-818e25960a8f?w=900&auto=format&fit=crop&q=80',
+    images: [
+      'https://images.unsplash.com/photo-1605901309584-818e25960a8f?w=900&auto=format&fit=crop&q=80'
+    ],
+    youtubeUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    specifications: {
+      'Resolution': 'True 4K Gaming, 8K HDR Ready',
+      'Frame Rate': 'Up to 120 FPS',
+      'Internal Storage': '1TB Custom NVME SSD'
+    },
+    featured: false,
+    active: true,
+    isNew: false,
+    createdAt: '2026-08-19T10:00:00.000Z',
+    updatedAt: '2026-09-02T10:00:00.000Z'
+  },
+  {
+    id: 'prod-jbl-charge-5',
+    name: 'JBL Charge 5 Portable Waterproof Bluetooth Speaker with Powerbank',
+    brand: 'JBL',
+    categoryId: 'cat-speakers',
+    categoryName: 'Speaker',
+    subcategory: 'Bluetooth Speakers',
+    shortDescription: 'Bold JBL Original Pro Sound with long excursion driver, separate tweeter and dual passive bass radiators.',
+    description: 'Take the party with you no matter what the weather. The JBL Charge 5 speaker delivers bold JBL Original Pro Sound, with its optimized long excursion driver, separate tweeter and dual pumping JBL bass radiators. Up to 20 hours of playtime.',
+    discountPercent: 25,
+    affiliateLink: 'https://www.amazon.in/s?k=jbl+charge+5&tag=jyadakharido-21',
+    primaryImage: 'https://images.unsplash.com/photo-1545454675-3531b543be5d?w=900&auto=format&fit=crop&q=80',
+    images: [
+      'https://images.unsplash.com/photo-1545454675-3531b543be5d?w=900&auto=format&fit=crop&q=80'
+    ],
+    youtubeUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    specifications: {
+      'Output Power': '30W RMS woofer + 10W RMS tweeter',
+      'Battery Life': 'Up to 20 hours',
+      'Waterproof': 'IP67 Waterproof and Dustproof'
+    },
+    featured: false,
+    active: true,
+    isNew: true,
+    createdAt: '2026-08-21T10:00:00.000Z',
+    updatedAt: '2026-09-02T10:00:00.000Z'
+  },
+  {
+    id: 'prod-rayban-aviator',
+    name: 'Ray-Ban Aviator Classic Polarized Sunglasses Green Classic G-15',
+    brand: 'Ray-Ban',
+    categoryId: 'cat-fashion',
+    categoryName: 'Fashion',
+    subcategory: 'Eyewear',
+    shortDescription: 'Timeless style, authenticity and premium sun protection with crystal polarized lenses and lightweight gold metal frame.',
+    description: 'Originally created for U.S. aviators in 1937, Ray-Ban Aviator Classic sunglasses are an iconic design that combines great aviator styling with exceptional quality, performance and comfort.',
+    discountPercent: 20,
+    affiliateLink: 'https://www.amazon.in/s?k=rayban+aviator+classic&tag=jyadakharido-21',
+    primaryImage: 'https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=900&auto=format&fit=crop&q=80',
+    images: [
+      'https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=900&auto=format&fit=crop&q=80'
+    ],
+    youtubeUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    specifications: {
+      'Frame Material': 'Metal Gold Tone',
+      'Lens Color': 'G-15 Green Polarized',
+      'UV Protection': '100% UV400'
+    },
+    featured: true,
+    active: true,
+    isNew: true,
+    createdAt: '2026-08-24T10:00:00.000Z',
+    updatedAt: '2026-09-03T10:00:00.000Z'
   }
 ];
 
@@ -532,7 +720,7 @@ export const INITIAL_BLOGS: Blog[] = [
 export const INITIAL_SITE_SETTINGS: SiteSettings = {
   brandName: 'Jyada Kharido',
   tagline: 'Best Deals • Big Savings',
-  amazonStoreUrl: 'https://link.amazon/B0eiXrBNR',
+  amazonStoreUrl: 'https://link.amazon/B012S1jyj',
   heroHeading: 'Wireless',
   heroSubheading: 'Beats Solo',
   heroDescription: 'Discover handpicked products across fashion, electronics, gadgets, and lifestyle with verified deals.',
@@ -547,6 +735,11 @@ export const INITIAL_SITE_SETTINGS: SiteSettings = {
     facebook: 'https://facebook.com/jyadakharido',
     twitter: 'https://twitter.com/jyadakharido',
     youtube: 'https://youtube.com/@jyadakharido'
+  },
+  socialHandles: {
+    instagram: 'jyadakharido',
+    x: 'jyadakharido',
+    facebook: 'Jyada Kharido Official'
   },
   featureBarItems: [
     {

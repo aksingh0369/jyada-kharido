@@ -21,12 +21,11 @@ import { WishlistView } from './components/WishlistView';
 import { AboutView } from './components/AboutView';
 import { ContactView } from './components/ContactView';
 import { BlogView } from './components/BlogView';
-import { BlogSection } from './components/BlogSection';
-import { BrandStrip } from './components/BrandStrip';
 import { Footer } from './components/Footer';
 import { SearchModal } from './components/SearchModal';
 import { AuthModal } from './components/AuthModal';
 import { DeveloperDashboard } from './components/DeveloperDashboard';
+import { AiAssistantModal } from './components/AiAssistantModal';
 
 import { Product, Category, Festival, Blog, SiteSettings, UserProfile } from './types';
 import { StorageService } from './services/storageService';
@@ -57,6 +56,7 @@ export default function App() {
   // Modals
   const [searchOpen, setSearchOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
+  const [aiAssistantOpen, setAiAssistantOpen] = useState(false);
 
   // Load / Refresh Data
   const refreshData = () => {
@@ -73,6 +73,13 @@ export default function App() {
     setActiveFestival(actFest);
     setSettings(sett);
     setBlogs(blgs);
+
+    setSelectedCategory((prev) => {
+      if (prev && !cats.some(c => c.id === prev.id || c.slug === prev.slug)) {
+        return null;
+      }
+      return prev;
+    });
 
     const user = AuthService.getCurrentUser();
     setCurrentUser(user);
@@ -150,7 +157,7 @@ export default function App() {
   const homeFilteredProducts = useMemo(() => {
     const activeProducts = products.filter(p => p.active);
     if (homeProductFilter === 'all') {
-      return activeProducts.slice(0, 8);
+      return activeProducts;
     }
     if (homeProductFilter === 'featured') {
       return activeProducts.filter(p => p.featured);
@@ -158,7 +165,12 @@ export default function App() {
     if (homeProductFilter === 'new') {
       return activeProducts.filter(p => p.isNew);
     }
-    return activeProducts.filter(p => p.categoryId === homeProductFilter || p.categoryName.toLowerCase() === homeProductFilter.toLowerCase());
+    const target = homeProductFilter.toLowerCase();
+    return activeProducts.filter(p => 
+      p.categoryId === homeProductFilter || 
+      p.categoryId?.toLowerCase() === target ||
+      p.categoryName?.toLowerCase() === target
+    );
   }, [products, homeProductFilter]);
 
   // Active festival theme class
@@ -175,6 +187,7 @@ export default function App() {
         settings={settings}
         onOpenSearch={() => setSearchOpen(true)}
         onOpenAuth={() => setAuthOpen(true)}
+        onOpenAiAssistant={() => setAiAssistantOpen(true)}
         onNavigate={navigate}
         currentPage={currentPage}
       />
@@ -239,7 +252,15 @@ export default function App() {
         {currentPage === 'category-detail' && selectedCategory && (
           <CategoryView
             category={selectedCategory}
-            products={products.filter(p => p.categoryId === selectedCategory.id && p.active)}
+            products={products.filter(p => 
+              p.active && (
+                p.categoryId === selectedCategory.id ||
+                p.categoryId?.toLowerCase() === selectedCategory.id.toLowerCase() ||
+                p.categoryId?.toLowerCase() === selectedCategory.slug?.toLowerCase() ||
+                p.categoryName?.toLowerCase() === selectedCategory.name.toLowerCase() ||
+                p.categoryName?.toLowerCase() === selectedCategory.slug?.toLowerCase()
+              )
+            )}
             wishlist={wishlist}
             onToggleWishlist={handleToggleWishlist}
             onViewProduct={handleSelectProduct}
@@ -300,7 +321,12 @@ export default function App() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {products
-                .filter(p => p.active && (homeProductFilter === 'all' || p.categoryId === homeProductFilter))
+                .filter(p => p.active && (
+                  homeProductFilter === 'all' || 
+                  p.categoryId === homeProductFilter ||
+                  p.categoryId?.toLowerCase() === homeProductFilter.toLowerCase() ||
+                  p.categoryName?.toLowerCase() === homeProductFilter.toLowerCase()
+                ))
                 .map((prod) => (
                   <ProductCard
                     key={prod.id}
@@ -463,18 +489,6 @@ export default function App() {
               onCtaClick={() => navigate('shop')}
             />
 
-            {/* RECENT NEWS / BLOG SECTION (Behance Screenshot 3) */}
-            <BlogSection
-              blogs={blogs}
-              onSelectBlog={(blog) => {
-                setSelectedBlog(blog);
-                navigate('blog');
-              }}
-            />
-
-            {/* BRAND PARTNER LOGO STRIP (Behance Screenshot 3) */}
-            <BrandStrip />
-
           </div>
         )}
 
@@ -502,6 +516,26 @@ export default function App() {
           setCurrentUser(user);
           refreshData();
         }}
+      />
+
+      {/* Floating AI Shopping Guide Button */}
+      <button
+        onClick={() => setAiAssistantOpen(true)}
+        className="fixed bottom-6 right-6 z-40 bg-gradient-to-r from-purple-600 via-[#F52D56] to-pink-600 text-white px-4 py-3 rounded-full shadow-xl hover:shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-2 text-xs font-black cursor-pointer group"
+        title="Chat with Jyada Kharido AI Shopping Guide"
+        id="btn-floating-ai-guide"
+      >
+        <Sparkles className="w-4 h-4 animate-spin text-yellow-300" style={{ animationDuration: '4s' }} />
+        <span className="hidden sm:inline">Ask AI Deals Guide</span>
+        <span className="sm:hidden">AI Deals</span>
+      </button>
+
+      {/* AI Assistant Modal */}
+      <AiAssistantModal
+        isOpen={aiAssistantOpen}
+        onClose={() => setAiAssistantOpen(false)}
+        products={products.filter(p => p.active !== false)}
+        onSelectProduct={handleSelectProduct}
       />
 
     </div>

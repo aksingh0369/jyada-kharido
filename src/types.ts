@@ -118,6 +118,12 @@ export interface SiteSettings {
     twitter: string;
     youtube: string;
   };
+  socialHandles?: {
+    instagram?: string;
+    x?: string;
+    facebook?: string;
+  };
+  contactAddress?: string;
   featureBarItems: FeatureBarItem[];
   activeFestivalOverride?: string; // e.g. 'diwali', 'holi', or 'auto'
 }

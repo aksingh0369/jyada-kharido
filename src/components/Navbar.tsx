@@ -23,6 +23,7 @@ interface NavbarProps {
   settings?: SiteSettings;
   onOpenSearch: () => void;
   onOpenAuth: () => void;
+  onOpenAiAssistant?: () => void;
   onNavigate: (page: string, params?: Record<string, string>) => void;
   currentPage: string;
 }
@@ -34,6 +35,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   settings,
   onOpenSearch,
   onOpenAuth,
+  onOpenAiAssistant,
   onNavigate,
   currentPage
 }) => {
@@ -41,7 +43,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
 
-  const amazonUrl = settings?.amazonStoreUrl || 'https://link.amazon/B0eiXrBNR';
+  const amazonUrl = settings?.amazonStoreUrl || 'https://link.amazon/B012S1jyj';
 
   useEffect(() => {
     const handleScroll = () => {
@@ -61,7 +63,6 @@ export const Navbar: React.FC<NavbarProps> = ({
     { label: 'Shop', page: 'shop' },
     { label: 'Categories', page: 'categories' },
     { label: 'About Us', page: 'about' },
-    { label: 'Blog', page: 'blog' },
     { label: 'Contact Us', page: 'contact' },
   ];
 
@@ -143,8 +144,21 @@ export const Navbar: React.FC<NavbarProps> = ({
             </nav>
 
             {/* Right Action Icons */}
-            <div className="flex items-center space-x-3 sm:space-x-4">
+            <div className="flex items-center space-x-2 sm:space-x-3">
               
+              {/* AI Deals Guide Button */}
+              {onOpenAiAssistant && (
+                <button
+                  onClick={onOpenAiAssistant}
+                  className="px-2.5 py-1.5 rounded-full bg-gradient-to-r from-purple-50 to-pink-50 hover:from-purple-100 hover:to-pink-100 border border-purple-200/90 text-purple-700 hover:text-purple-900 flex items-center gap-1.5 text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                  title="Ask Jyada Kharido AI Shopping Guide"
+                  id="btn-nav-ai-guide"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-purple-600 animate-pulse" />
+                  <span className="hidden sm:inline">AI Guide</span>
+                </button>
+              )}
+
               {/* Global Search Button */}
               <button
                 onClick={onOpenSearch}

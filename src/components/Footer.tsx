@@ -2,16 +2,23 @@ import React, { useState } from 'react';
 import { 
   Instagram, 
   Facebook, 
-  Twitter, 
   Youtube, 
   Send, 
   ShieldCheck, 
   CheckCircle2, 
   ShoppingBag,
-  ExternalLink
+  ExternalLink,
+  Sparkles
 } from 'lucide-react';
 import { Logo } from './Logo';
 import { SiteSettings } from '../types';
+
+// Authentic X.com (Twitter) Vector Icon
+const XIcon: React.FC<{ className?: string }> = ({ className = "w-4 h-4" }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+  </svg>
+);
 
 interface FooterProps {
   settings: SiteSettings;
@@ -21,6 +28,42 @@ interface FooterProps {
 export const Footer: React.FC<FooterProps> = ({ settings, onNavigate }) => {
   const [email, setEmail] = useState('');
   const [subscribed, setSubscribed] = useState(false);
+
+  // -------------------------------------------------------------
+  // RESOLVE DEVELOPER-CONFIGURED SOCIAL HANDLES & URLS
+  // -------------------------------------------------------------
+  const instagramRaw = settings.socialHandles?.instagram || settings.socialLinks?.instagram || 'jyadakharido';
+  const instagramClean = instagramRaw
+    .replace(/^https?:\/\/(www\.)?instagram\.com\//, '')
+    .replace(/^@/, '')
+    .replace(/\/$/, '')
+    .trim();
+  const instagramDisplay = instagramClean ? `@${instagramClean}` : '@jyadakharido';
+  const instagramUrl = instagramRaw.startsWith('http') ? instagramRaw : `https://instagram.com/${instagramClean}`;
+
+  const xRaw = settings.socialHandles?.x || settings.socialLinks?.twitter || 'jyadakharido';
+  const xClean = xRaw
+    .replace(/^https?:\/\/(www\.)?(x\.com|twitter\.com)\//, '')
+    .replace(/^@/, '')
+    .replace(/\/$/, '')
+    .trim();
+  const xDisplay = xClean ? `@${xClean}` : '@jyadakharido';
+  const xUrl = xRaw.startsWith('http') ? xRaw : `https://x.com/${xClean}`;
+
+  const facebookRaw = settings.socialHandles?.facebook || settings.socialLinks?.facebook || 'Jyada Kharido Official';
+  let facebookUrl = '';
+  let facebookDisplay = facebookRaw;
+  if (facebookRaw.startsWith('http')) {
+    facebookUrl = facebookRaw;
+    facebookDisplay = facebookRaw.replace(/^https?:\/\/(www\.)?facebook\.com\//, '').replace(/\/$/, '') || 'Facebook';
+  } else if (facebookRaw.includes(' ')) {
+    facebookUrl = `https://www.facebook.com/search/top?q=${encodeURIComponent(facebookRaw.trim())}`;
+    facebookDisplay = facebookRaw;
+  } else {
+    const cleanFb = facebookRaw.replace(/^@/, '').trim();
+    facebookUrl = `https://facebook.com/${cleanFb}`;
+    facebookDisplay = cleanFb;
+  }
 
   const handleSubscribe = (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,41 +95,47 @@ export const Footer: React.FC<FooterProps> = ({ settings, onNavigate }) => {
             {/* Social Icons */}
             <div className="flex items-center space-x-3 pt-2">
               <a 
-                href={settings.socialLinks.instagram} 
+                href={instagramUrl} 
                 target="_blank" 
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 className="p-2.5 rounded-full bg-gray-100 hover:bg-rose-50 hover:text-[#F52D56] transition-colors"
-                aria-label="Instagram"
+                aria-label={`Instagram ${instagramDisplay}`}
+                title={`Instagram: ${instagramDisplay}`}
               >
                 <Instagram className="w-4 h-4" />
               </a>
               <a 
-                href={settings.socialLinks.facebook} 
+                href={facebookUrl} 
                 target="_blank" 
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 className="p-2.5 rounded-full bg-gray-100 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                aria-label="Facebook"
+                aria-label={`Facebook: ${facebookDisplay}`}
+                title={`Facebook: ${facebookDisplay}`}
               >
                 <Facebook className="w-4 h-4" />
               </a>
               <a 
-                href={settings.socialLinks.twitter} 
+                href={xUrl} 
                 target="_blank" 
-                rel="noreferrer"
-                className="p-2.5 rounded-full bg-gray-100 hover:bg-sky-50 hover:text-sky-500 transition-colors"
-                aria-label="Twitter"
+                rel="noopener noreferrer"
+                className="p-2.5 rounded-full bg-gray-100 hover:bg-gray-200 hover:text-black transition-colors"
+                aria-label={`X.com: ${xDisplay}`}
+                title={`X.com: ${xDisplay}`}
               >
-                <Twitter className="w-4 h-4" />
+                <XIcon className="w-4 h-4" />
               </a>
-              <a 
-                href={settings.socialLinks.youtube} 
-                target="_blank" 
-                rel="noreferrer"
-                className="p-2.5 rounded-full bg-gray-100 hover:bg-red-50 hover:text-red-600 transition-colors"
-                aria-label="YouTube"
-              >
-                <Youtube className="w-4 h-4" />
-              </a>
+              {settings.socialLinks?.youtube && (
+                <a 
+                  href={settings.socialLinks.youtube} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="p-2.5 rounded-full bg-gray-100 hover:bg-red-50 hover:text-red-600 transition-colors"
+                  aria-label="YouTube"
+                  title="YouTube"
+                >
+                  <Youtube className="w-4 h-4" />
+                </a>
+              )}
             </div>
           </div>
 
@@ -107,9 +156,6 @@ export const Footer: React.FC<FooterProps> = ({ settings, onNavigate }) => {
               </li>
               <li>
                 <button onClick={() => onNavigate('about')} className="hover:text-black cursor-pointer">About Us</button>
-              </li>
-              <li>
-                <button onClick={() => onNavigate('blog')} className="hover:text-black cursor-pointer">Blog</button>
               </li>
               <li>
                 <button onClick={() => onNavigate('contact')} className="hover:text-black cursor-pointer">Contact Us</button>
@@ -197,6 +243,57 @@ export const Footer: React.FC<FooterProps> = ({ settings, onNavigate }) => {
             )}
           </div>
 
+        </div>
+
+        {/* Official Social Profiles Bar (Facebook, Instagram, X.com) */}
+        <div className="py-4 px-5 sm:px-6 rounded-2xl bg-gray-50 border border-gray-200/80 mb-6 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-[#F52D56] animate-pulse" />
+            <span className="text-xs font-black uppercase tracking-wider text-gray-900">
+              Official Social Profiles:
+            </span>
+            <span className="text-[11px] text-gray-500 hidden sm:inline">
+              Follow us for flash deals & daily savings
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3">
+            {/* Instagram Handle */}
+            <a 
+              href={instagramUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white hover:bg-rose-50 border border-gray-200 hover:border-rose-300 text-gray-700 hover:text-[#F52D56] text-xs font-bold transition-all shadow-2xs group cursor-pointer"
+              title={`Instagram: ${instagramDisplay}`}
+            >
+              <Instagram className="w-4 h-4 text-[#F52D56] group-hover:scale-110 transition-transform" />
+              <span>{instagramDisplay}</span>
+            </a>
+
+            {/* X.com Handle */}
+            <a 
+              href={xUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white hover:bg-gray-100 border border-gray-200 hover:border-gray-900 text-gray-700 hover:text-gray-950 text-xs font-bold transition-all shadow-2xs group cursor-pointer"
+              title={`X.com: ${xDisplay}`}
+            >
+              <XIcon className="w-3.5 h-3.5 text-black group-hover:scale-110 transition-transform" />
+              <span>{xDisplay}</span>
+            </a>
+
+            {/* Facebook Handle / Page */}
+            <a 
+              href={facebookUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white hover:bg-blue-50 border border-gray-200 hover:border-blue-300 text-gray-700 hover:text-blue-600 text-xs font-bold transition-all shadow-2xs group cursor-pointer"
+              title={`Facebook: ${facebookDisplay}`}
+            >
+              <Facebook className="w-4 h-4 text-blue-600 group-hover:scale-110 transition-transform" />
+              <span>{facebookDisplay}</span>
+            </a>
+          </div>
         </div>
 
         {/* Affiliate Disclosure Box */}

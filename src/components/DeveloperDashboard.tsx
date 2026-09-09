@@ -22,13 +22,27 @@ import {
   ShieldCheck,
   Link2,
   ExternalLink,
-  ShoppingBag
+  ShoppingBag,
+  Wand2,
+  Loader2,
+  Bot,
+  Instagram,
+  Facebook,
+  Share2
 } from 'lucide-react';
 import { Product, Category, Festival, Blog, SiteSettings, PlatformAffiliateLink } from '../types';
 import { StorageService } from '../services/storageService';
 import { MediaService } from '../services/mediaService';
+import { AiService } from '../services/aiService';
 import { MediaHealthAudit } from './MediaHealthAudit';
 import { SafeImage } from './SafeImage';
+
+// Authentic X.com (Twitter) Vector Icon
+const XIcon: React.FC<{ className?: string }> = ({ className = "w-4 h-4" }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+  </svg>
+);
 
 interface DeveloperDashboardProps {
   products: Product[];
@@ -51,10 +65,13 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'festivals' | 'settings' | 'blogs' | 'media-health'>('products');
 
-  // Notification status
-  const [msg, setMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  // CATEGORY FILTER STATE FOR PRODUCT INVENTORY
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
-  const showNotification = (text: string, type: 'success' | 'error' = 'success') => {
+  // Notification status
+  const [msg, setMsg] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+  const showNotification = (text: string, type: 'success' | 'error' | 'info' = 'success') => {
     setMsg({ text, type });
     setTimeout(() => setMsg(null), 3500);
   };
@@ -94,31 +111,141 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
     onConfirm: () => void;
   } | null>(null);
 
+  // DEDICATED CATEGORY DELETION MODAL STATE
+  const [categoryDeleteTarget, setCategoryDeleteTarget] = useState<{
+    id: string;
+    name: string;
+    productCount: number;
+    deleteProducts: boolean;
+  } | null>(null);
+
   useEffect(() => {
     setSiteSettingsForm(settings);
   }, [settings]);
 
+  // AI & Form Validation State
+  const [isAiGeneratingProduct, setIsAiGeneratingProduct] = useState(false);
+  const [productFormError, setProductFormError] = useState<string | null>(null);
+
   // -------------------------------------------------------------
-  // PRODUCT HANDLERS
+  // AI PRODUCT ASSISTANT
   // -------------------------------------------------------------
-  const handleSaveProduct = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingProduct || !editingProduct.name || !editingProduct.categoryId) {
-      showNotification('Please enter a product name and select a category.', 'error');
+  const handleAiAutoFill = async () => {
+    if (!editingProduct) return;
+    const cleanTitle = (editingProduct.name || '').trim();
+    if (!cleanTitle) {
+      setProductFormError('Please enter a Product Title first so AI knows what to write (e.g. boAt Airdopes 141).');
+      showNotification('Please enter a Product Title first.', 'error');
       return;
     }
 
-    const cat = categories.find(c => c.id === editingProduct.categoryId);
-    const catName = cat ? cat.name : editingProduct.categoryName || 'General';
+    setIsAiGeneratingProduct(true);
+    setProductFormError(null);
+    showNotification(`✨ AI is generating descriptions and specs for "${cleanTitle}"...`, 'info');
 
-    StorageService.saveProduct({
+    try {
+      const cat = categories.find(c => c.id === editingProduct.categoryId);
+      const res = await AiService.generateProductDetails(
+        cleanTitle,
+        editingProduct.brand,
+        cat?.name || editingProduct.categoryName,
+        editingProduct.description
+      );
+
+      setEditingProduct(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          shortDescription: res.shortDescription || prev.shortDescription,
+          description: res.description || prev.description,
+          specifications: {
+            ...(prev.specifications || {}),
+            ...(res.specifications || {})
+          },
+          discountPercent: prev.discountPercent || res.suggestedDiscount || 20
+        };
+      });
+
+      showNotification('✨ AI generated product details successfully!', 'success');
+    } catch (err: any) {
+      console.error('AI Auto-fill error:', err);
+      showNotification('Failed to generate with AI. You can still enter details manually.', 'error');
+    } finally {
+      setIsAiGeneratingProduct(false);
+    }
+  };
+
+  // -------------------------------------------------------------
+  // PRODUCT HANDLERS
+  // -------------------------------------------------------------
+  const handleSaveProduct = (e?: React.FormEvent, forceNew: boolean = false) => {
+    if (e && e.preventDefault) e.preventDefault();
+    setProductFormError(null);
+
+    if (!editingProduct) return;
+
+    const cleanTitle = (editingProduct.name || '').trim();
+    if (!cleanTitle) {
+      setProductFormError('Product Title cannot be empty. Please type a product title.');
+      showNotification('Product Title is required.', 'error');
+      return;
+    }
+
+    // Category check with auto-recovery to first category
+    let categoryId = editingProduct.categoryId;
+    if (!categoryId && categories.length > 0) {
+      categoryId = categories[0].id;
+    }
+    if (!categoryId) {
+      setProductFormError('Please add at least one category before adding products.');
+      showNotification('No category found. Please add a category first.', 'error');
+      return;
+    }
+
+    const cat = categories.find(c => c.id === categoryId);
+    const catName = cat ? cat.name : (editingProduct.categoryName || 'General');
+
+    // Affiliate Link sanitize (ensure https:// is added if user typed e.g. link.amazon/...)
+    let affiliateLink = (editingProduct.affiliateLink || '').trim();
+    if (!affiliateLink) {
+      affiliateLink = 'https://www.amazon.in/?tag=jyadakharido-21';
+    } else if (!/^https?:\/\//i.test(affiliateLink)) {
+      affiliateLink = 'https://' + affiliateLink;
+    }
+
+    // Youtube link sanitize
+    let youtubeUrl = (editingProduct.youtubeUrl || '').trim();
+    if (youtubeUrl && !/^https?:\/\//i.test(youtubeUrl)) {
+      youtubeUrl = 'https://' + youtubeUrl;
+    }
+
+    const safeImages = Array.isArray(editingProduct.images) ? [...editingProduct.images] : [];
+    const primaryImage = editingProduct.primaryImage || safeImages[0] || '';
+
+    const productPayload = {
       ...editingProduct,
-      categoryName: catName
-    } as any);
+      name: cleanTitle,
+      brand: (editingProduct.brand || '').trim() || 'Generic',
+      categoryId,
+      categoryName: catName,
+      affiliateLink,
+      youtubeUrl,
+      images: safeImages,
+      primaryImage,
+      ...(forceNew ? { id: undefined } : {})
+    };
+
+    StorageService.saveProduct(productPayload as any);
 
     setEditingProduct(null);
+    setProductFormError(null);
     onRefreshData();
-    showNotification('Product successfully saved!');
+    showNotification(
+      forceNew || !editingProduct.id
+        ? 'New product successfully added to category!'
+        : 'Product successfully updated!',
+      'success'
+    );
   };
 
   const handleDuplicate = (id: string) => {
@@ -339,17 +466,54 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
   };
 
   const handleDeleteCategory = (id: string, name: string) => {
-    setConfirmModal({
-      title: 'Delete Category',
-      message: `Are you sure you want to permanently delete category "${name}"? Products assigned to this category will not be lost, but the category tab will be removed.`,
-      confirmText: 'Delete Category',
-      danger: true,
-      onConfirm: () => {
-        StorageService.deleteCategory(id);
-        onRefreshData();
-        showNotification(`Category "${name}" removed successfully.`, 'success');
-      }
+    const target = id.trim().toLowerCase();
+    const nameTarget = name.trim().toLowerCase();
+    const count = products.filter(p => 
+      p.categoryId === id || 
+      p.categoryId?.toLowerCase() === target ||
+      p.categoryName?.toLowerCase() === nameTarget
+    ).length;
+
+    setCategoryDeleteTarget({
+      id,
+      name,
+      productCount: count,
+      deleteProducts: false
     });
+  };
+
+  const handleExecuteDeleteCategory = () => {
+    if (!categoryDeleteTarget) return;
+    const { id, name, deleteProducts, productCount } = categoryDeleteTarget;
+
+    const success = StorageService.deleteCategory(id, deleteProducts);
+
+    // Close category edit form if it was editing this deleted category
+    if (editingCategory?.id === id || editingCategory?.name?.toLowerCase() === name.toLowerCase()) {
+      setEditingCategory(null);
+    }
+
+    // Reset product inventory filter if filtered by this deleted category
+    if (categoryFilter === id) {
+      setCategoryFilter('all');
+    }
+
+    // Close modal
+    setCategoryDeleteTarget(null);
+
+    // Refresh data in storage & App.tsx
+    onRefreshData();
+
+    if (success) {
+      showNotification(
+        deleteProducts && productCount > 0
+          ? `Category "${name}" and its ${productCount} product(s) permanently deleted.`
+          : `Category "${name}" permanently deleted. Products preserved in General.`,
+        'success'
+      );
+    } else {
+      showNotification(`Failed to delete category "${name}".`, 'error');
+    }
   };
 
   const handleReorderCategory = (index: number, direction: 'up' | 'down') => {
@@ -476,9 +640,17 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
         <div className={`mb-6 p-4 rounded-2xl flex items-center gap-2 text-xs font-bold shadow-md transition-all ${
           msg.type === 'success' 
             ? 'bg-emerald-50 border border-emerald-200 text-emerald-800' 
+            : msg.type === 'info'
+            ? 'bg-purple-50 border border-purple-200 text-purple-900'
             : 'bg-red-50 border border-red-200 text-red-800'
         }`}>
-          {msg.type === 'success' ? <Check className="w-4 h-4 text-emerald-600" /> : <AlertCircle className="w-4 h-4 text-red-600" />}
+          {msg.type === 'success' ? (
+            <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+          ) : msg.type === 'info' ? (
+            <Sparkles className="w-4 h-4 text-purple-600 shrink-0 animate-spin" style={{ animationDuration: '3s' }} />
+          ) : (
+            <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+          )}
           <span>{msg.text}</span>
         </div>
       )}
@@ -547,9 +719,16 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
           {editingProduct && (
             <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200 jk-card-shadow space-y-6">
               <div className="flex items-center justify-between border-b border-gray-100 pb-4">
-                <h3 className="text-lg font-black text-gray-900 uppercase">
-                  {editingProduct.id ? `Edit: ${editingProduct.name}` : 'Create New Product'}
-                </h3>
+                <div>
+                  <h3 className="text-lg font-black text-gray-900 uppercase">
+                    {editingProduct.id ? `Edit: ${editingProduct.name}` : 'Create New Product'}
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {editingProduct.id 
+                      ? 'You are editing an existing item. You can update it or save it as a new separate product.'
+                      : 'Add an unlimited number of products to any category.'}
+                  </p>
+                </div>
                 <button
                   type="button"
                   onClick={() => setEditingProduct(null)}
@@ -559,19 +738,144 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
                 </button>
               </div>
 
-              <form onSubmit={handleSaveProduct} className="space-y-6">
+              {/* Warning/Clarification Banner when editing existing product */}
+              {editingProduct.id && (
+                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+                  <div>
+                    <p className="font-bold text-amber-900">
+                      Modifying existing product: <span className="underline">{editingProduct.name}</span>
+                    </p>
+                    <p className="text-amber-700 mt-0.5">
+                      To add a 3rd or new product without replacing this one, choose <strong>"Save as New Product"</strong> below.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEditingProduct({
+                      name: '',
+                      brand: '',
+                      categoryId: editingProduct.categoryId || categories[0]?.id || '',
+                      categoryName: editingProduct.categoryName || categories[0]?.name || '',
+                      discountPercent: 20,
+                      affiliateLink: 'https://www.amazon.in/?tag=jyadakharido-21',
+                      shortDescription: '',
+                      description: '',
+                      images: [],
+                      primaryImage: '',
+                      specifications: { 'Connectivity': 'Bluetooth 5.3', 'Warranty': '1 Year Manufacturer' },
+                      featured: false,
+                      active: true,
+                      isNew: true
+                    })}
+                    className="shrink-0 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold cursor-pointer transition-colors shadow-xs"
+                  >
+                    + Start Blank Product
+                  </button>
+                </div>
+              )}
+
+              {/* QUICK ACTIONS TOP BAR */}
+              <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-gradient-to-r from-gray-50 to-indigo-50/40 rounded-2xl border border-gray-200">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] font-extrabold uppercase text-gray-500 tracking-wider">AI Assistant:</span>
+                  <button
+                    type="button"
+                    onClick={handleAiAutoFill}
+                    disabled={isAiGeneratingProduct || !editingProduct.name?.trim()}
+                    className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-40 transition-all"
+                    title={!editingProduct.name?.trim() ? "Type a product title first" : "Generate descriptions and specs with Gemini AI"}
+                  >
+                    {isAiGeneratingProduct ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>AI Writing Specs...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-3.5 h-3.5 text-yellow-300" />
+                        <span>✨ AI Auto-Fill Details</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setEditingProduct(null); setProductFormError(null); }}
+                    className="px-3.5 py-1.5 rounded-xl border border-gray-300 bg-white text-xs font-bold hover:bg-gray-50 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  {editingProduct.id ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={(e) => handleSaveProduct(e, true)}
+                        className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs flex items-center gap-1 cursor-pointer transition-colors"
+                        title="Save as a new separate item without modifying the original"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Save as New</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => handleSaveProduct(e, false)}
+                        className="px-4 py-1.5 rounded-xl bg-[#F52D56] hover:bg-[#D82C4A] text-white text-xs font-bold shadow-xs cursor-pointer transition-colors"
+                      >
+                        Save Changes
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={(e) => handleSaveProduct(e, false)}
+                      className="px-4 py-1.5 rounded-xl bg-[#F52D56] hover:bg-[#D82C4A] text-white text-xs font-bold shadow-xs flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Save Product</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Validation Error Alert if any */}
+              {productFormError && (
+                <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl flex items-center gap-2.5 text-xs text-rose-800 font-semibold">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>{productFormError}</span>
+                </div>
+              )}
+
+              <form onSubmit={(e) => handleSaveProduct(e, false)} noValidate className="space-y-6">
                 
                 {/* Row 1: Basic Info */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">Product Title *</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-bold text-gray-700">Product Title *</label>
+                      <button
+                        type="button"
+                        onClick={handleAiAutoFill}
+                        disabled={isAiGeneratingProduct || !editingProduct.name?.trim()}
+                        className="text-[11px] font-bold text-purple-600 hover:text-purple-800 disabled:opacity-40 flex items-center gap-1 cursor-pointer transition-colors"
+                        title="Auto-generate description & specs with Gemini AI"
+                      >
+                        {isAiGeneratingProduct ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3 text-amber-500" />}
+                        <span>{isAiGeneratingProduct ? 'Generating...' : '✨ AI Fill'}</span>
+                      </button>
+                    </div>
                     <input
                       type="text"
                       value={editingProduct.name || ''}
-                      onChange={(e) => setEditingProduct({ ...editingProduct, name: e.target.value })}
-                      required
+                      onChange={(e) => {
+                        setEditingProduct({ ...editingProduct, name: e.target.value });
+                        if (productFormError) setProductFormError(null);
+                      }}
                       placeholder="e.g. Beats Solo 4 Wireless Headphones"
-                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#F52D56]"
+                      className={`w-full px-3 py-2 bg-gray-50 border rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#F52D56] ${
+                        !editingProduct.name?.trim() && productFormError ? 'border-rose-400 bg-rose-50/30' : 'border-gray-200'
+                      }`}
                     />
                   </div>
 
@@ -581,8 +885,7 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
                       type="text"
                       value={editingProduct.brand || ''}
                       onChange={(e) => setEditingProduct({ ...editingProduct, brand: e.target.value })}
-                      required
-                      placeholder="e.g. Beats / Apple / Sony"
+                      placeholder="e.g. Beats / Apple / boAt / Sony"
                       className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#F52D56]"
                     />
                   </div>
@@ -627,14 +930,19 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
 
                   <div className="sm:col-span-2">
                     <label className="block text-xs font-bold text-gray-700 mb-1">
-                      Amazon Affiliate Link * (with your Associate Tag)
+                      Amazon Affiliate Link (or product link)
                     </label>
                     <input
-                      type="url"
+                      type="text"
                       value={editingProduct.affiliateLink || ''}
                       onChange={(e) => setEditingProduct({ ...editingProduct, affiliateLink: e.target.value })}
-                      required
-                      placeholder="https://www.amazon.in/dp/...?tag=jyadakharido-21"
+                      onBlur={() => {
+                        const link = (editingProduct.affiliateLink || '').trim();
+                        if (link && !/^https?:\/\//i.test(link)) {
+                          setEditingProduct({ ...editingProduct, affiliateLink: 'https://' + link });
+                        }
+                      }}
+                      placeholder="e.g. link.amazon/B012S1jyj or https://www.amazon.in/dp/...tag=jyadakharido-21"
                       className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#F52D56]"
                     />
                   </div>
@@ -972,21 +1280,52 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
                   </label>
                 </div>
 
+                {/* Error Banner at bottom if needed */}
+                {productFormError && (
+                  <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl flex items-center gap-2.5 text-xs text-rose-800 font-semibold">
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>{productFormError}</span>
+                  </div>
+                )}
+
                 {/* Submit button */}
-                <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                <div className="flex flex-wrap items-center justify-end gap-2 pt-4 border-t border-gray-100">
                   <button
                     type="button"
-                    onClick={() => setEditingProduct(null)}
+                    onClick={() => { setEditingProduct(null); setProductFormError(null); }}
                     className="px-5 py-2.5 rounded-xl border border-gray-300 text-xs font-bold hover:bg-gray-50 cursor-pointer"
                   >
                     Cancel
                   </button>
-                  <button
-                    type="submit"
-                    className="px-6 py-2.5 rounded-xl bg-[#F52D56] hover:bg-[#D82C4A] text-white text-xs font-bold shadow-md cursor-pointer"
-                  >
-                    Save Product Changes
-                  </button>
+                  {editingProduct.id ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={(e) => handleSaveProduct(e, true)}
+                        className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md flex items-center gap-1.5 cursor-pointer transition-colors"
+                        title="Save as a new separate product without overwriting this one"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Save as New Product (Keep Both)</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => handleSaveProduct(e, false)}
+                        className="px-6 py-2.5 rounded-xl bg-[#F52D56] hover:bg-[#D82C4A] text-white text-xs font-bold shadow-md cursor-pointer transition-colors"
+                      >
+                        Update This Product
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={(e) => handleSaveProduct(e, false)}
+                      className="px-6 py-2.5 rounded-xl bg-[#F52D56] hover:bg-[#D82C4A] text-white text-xs font-bold shadow-md flex items-center gap-1.5 cursor-pointer transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Add Product to Inventory</span>
+                    </button>
+                  )}
                 </div>
 
               </form>
@@ -995,6 +1334,72 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
 
           {/* PRODUCT INVENTORY TABLE */}
           <div className="bg-white rounded-3xl border border-gray-200/80 overflow-hidden jk-card-shadow">
+            {/* Category Filter & Quick Actions */}
+            <div className="p-4 bg-gray-50/70 border-b border-gray-200/80 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[11px] font-extrabold text-gray-500 uppercase mr-1">Category Filter:</span>
+                <button
+                  onClick={() => setCategoryFilter('all')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    categoryFilter === 'all'
+                      ? 'bg-gray-900 text-white shadow-xs'
+                      : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  All ({products.length})
+                </button>
+                {categories.map((cat) => {
+                  const count = products.filter(p => 
+                    p.categoryId === cat.id || 
+                    p.categoryId?.toLowerCase() === cat.id.toLowerCase() ||
+                    p.categoryId?.toLowerCase() === cat.slug?.toLowerCase() ||
+                    p.categoryName?.toLowerCase() === cat.name.toLowerCase()
+                  ).length;
+                  return (
+                    <button
+                      key={cat.id}
+                      onClick={() => setCategoryFilter(cat.id)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        categoryFilter === cat.id
+                          ? 'bg-[#F52D56] text-white shadow-xs'
+                          : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      {cat.name} ({count})
+                    </button>
+                  );
+                })}
+              </div>
+
+              {categoryFilter !== 'all' && (
+                <button
+                  onClick={() => {
+                    const selCat = categories.find(c => c.id === categoryFilter);
+                    setEditingProduct({
+                      name: '',
+                      brand: '',
+                      categoryId: categoryFilter,
+                      categoryName: selCat?.name || '',
+                      discountPercent: 20,
+                      affiliateLink: 'https://www.amazon.in/?tag=jyadakharido-21',
+                      shortDescription: '',
+                      description: '',
+                      images: [],
+                      primaryImage: '',
+                      specifications: { 'Connectivity': 'Bluetooth 5.3', 'Warranty': '1 Year Manufacturer' },
+                      featured: false,
+                      active: true,
+                      isNew: true
+                    });
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Product to {categories.find(c => c.id === categoryFilter)?.name}</span>
+                </button>
+              )}
+            </div>
+
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
@@ -1008,7 +1413,17 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 font-medium">
-                  {products.map((prod) => (
+                  {products
+                    .filter(prod => {
+                      if (categoryFilter === 'all') return true;
+                      return (
+                        prod.categoryId === categoryFilter ||
+                        prod.categoryId?.toLowerCase() === categoryFilter.toLowerCase() ||
+                        prod.categoryId?.toLowerCase() === categories.find(c => c.id === categoryFilter)?.slug?.toLowerCase() ||
+                        prod.categoryName?.toLowerCase() === categories.find(c => c.id === categoryFilter)?.name.toLowerCase()
+                      );
+                    })
+                    .map((prod) => (
                     <tr key={prod.id} className="hover:bg-gray-50/80 transition-colors">
                       <td className="p-4 flex items-center gap-3">
                         <div className="w-12 h-12 rounded-xl bg-gray-100 p-1.5 shrink-0 flex items-center justify-center">
@@ -1120,9 +1535,30 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
           {/* EDIT CATEGORY MODAL */}
           {editingCategory && (
             <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200 jk-card-shadow space-y-4">
-              <h3 className="text-lg font-black text-gray-900 uppercase">
-                {editingCategory.id ? 'Edit Category' : 'New Bento Category'}
-              </h3>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-lg font-black text-gray-900 uppercase">
+                    {editingCategory.id ? 'Edit Category' : 'New Bento Category'}
+                  </h3>
+                  {editingCategory.id && (
+                    <p className="text-xs text-gray-500 font-mono">ID: {editingCategory.id}</p>
+                  )}
+                </div>
+                {editingCategory.id && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const id = editingCategory.id!;
+                      const name = editingCategory.name || 'Category';
+                      handleDeleteCategory(id, name);
+                    }}
+                    className="self-start sm:self-auto px-3.5 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete Category</span>
+                  </button>
+                )}
+              </div>
 
               <form onSubmit={handleSaveCategory} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -1279,7 +1715,6 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
                       onClick={() => {
                         const id = editingCategory.id!;
                         const name = editingCategory.name || 'Category';
-                        setEditingCategory(null);
                         handleDeleteCategory(id, name);
                       }}
                       className="px-4 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
@@ -1313,23 +1748,80 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
 
           {/* CATEGORIES LIST */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {categories.map((cat, idx) => (
+            {categories.map((cat, idx) => {
+              const catProductCount = products.filter(p => 
+                p.categoryId === cat.id || 
+                p.categoryId?.toLowerCase() === cat.id.toLowerCase() ||
+                p.categoryId?.toLowerCase() === cat.slug?.toLowerCase() ||
+                p.categoryName?.toLowerCase() === cat.name.toLowerCase()
+              ).length;
+
+              return (
               <div 
                 key={cat.id} 
-                className="rounded-2xl p-5 border flex items-center justify-between shadow-xs"
+                className="rounded-2xl p-5 border flex flex-col justify-between gap-4 shadow-xs"
                 style={{ backgroundColor: cat.bgColor, color: cat.textColor }}
               >
-                <div className="space-y-1 max-w-[60%]">
-                  <span className="text-[10px] font-bold uppercase tracking-wider opacity-80">{cat.shortLabel}</span>
-                  <h4 className="text-lg font-black uppercase leading-tight">{cat.name}</h4>
-                  <span className="text-[10px] opacity-70">Order #{idx + 1}</span>
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1 max-w-[65%]">
+                    <span className="text-[10px] font-bold uppercase tracking-wider opacity-80">{cat.shortLabel}</span>
+                    <h4 className="text-lg font-black uppercase leading-tight">{cat.name}</h4>
+                    <div className="flex items-center gap-2 pt-1">
+                      <span className="px-2 py-0.5 rounded-full bg-white/20 text-[10px] font-bold">
+                        📦 {catProductCount} {catProductCount === 1 ? 'Product' : 'Products'}
+                      </span>
+                      <span className="text-[10px] opacity-70">Order #{idx + 1}</span>
+                    </div>
+                  </div>
+                  <img src={cat.image} alt={cat.name} className="w-14 h-14 object-contain shrink-0" />
                 </div>
 
-                <div className="flex flex-col items-end gap-2">
-                  <img src={cat.image} alt={cat.name} className="w-14 h-14 object-contain" />
-                  
-                  <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1.5 mt-2">
-                    <div className="flex items-center gap-1 bg-black/40 backdrop-blur-sm p-1 rounded-lg">
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-white/10">
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCategoryFilter(cat.id);
+                        setEditingProduct({
+                          name: '',
+                          brand: '',
+                          categoryId: cat.id,
+                          categoryName: cat.name,
+                          discountPercent: 20,
+                          affiliateLink: 'https://www.amazon.in/?tag=jyadakharido-21',
+                          shortDescription: '',
+                          description: '',
+                          images: [],
+                          primaryImage: '',
+                          specifications: { 'Connectivity': 'Bluetooth 5.3', 'Warranty': '1 Year Manufacturer' },
+                          featured: false,
+                          active: true,
+                          isNew: true
+                        });
+                        setActiveTab('products');
+                      }}
+                      className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-xs"
+                      title="Add a new product directly into this category"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>+ Add Product</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCategoryFilter(cat.id);
+                        setActiveTab('products');
+                      }}
+                      className="px-2.5 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                      title="View all products in this category"
+                    >
+                      <Package className="w-3.5 h-3.5" />
+                      <span>View ({catProductCount})</span>
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-0.5 bg-black/40 backdrop-blur-sm p-1 rounded-lg">
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); handleReorderCategory(idx, 'up'); }}
@@ -1350,30 +1842,26 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
                       </button>
                     </div>
 
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); setEditingCategory(cat); }}
-                        className="px-2.5 py-1.5 rounded-lg bg-black/50 hover:bg-black/70 text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-xs"
-                        title="Edit Category Details"
-                      >
-                        <Edit3 className="w-3.5 h-3.5 text-amber-300" />
-                        <span>Edit</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); handleDeleteCategory(cat.id, cat.name); }}
-                        className="px-2.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-xs"
-                        title="Delete Category"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        <span>Delete</span>
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setEditingCategory(cat); }}
+                      className="p-1.5 rounded-lg bg-black/40 hover:bg-black/60 text-white text-[11px] font-bold flex items-center cursor-pointer transition-colors"
+                      title="Edit Category Details"
+                    >
+                      <Edit3 className="w-3.5 h-3.5 text-amber-300" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handleDeleteCategory(cat.id, cat.name); }}
+                      className="p-1.5 rounded-lg bg-red-600/80 hover:bg-red-600 text-white text-[11px] font-bold flex items-center cursor-pointer transition-colors"
+                      title="Delete Category"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
               </div>
-            ))}
+            );})}
           </div>
         </div>
       )}
@@ -1549,7 +2037,7 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
                 type="url"
                 value={siteSettingsForm.amazonStoreUrl || ''}
                 onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, amazonStoreUrl: e.target.value })}
-                placeholder="https://link.amazon/B0eiXrBNR"
+                placeholder="https://link.amazon/B012S1jyj"
                 className="w-full px-3 py-2 bg-gray-50 border rounded-xl text-xs font-semibold text-gray-800"
               />
             </div>
@@ -1595,6 +2083,146 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
                     onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, contactAddress: e.target.value })}
                     className="w-full px-3 py-2 bg-gray-50 border rounded-xl text-xs"
                   />
+                </div>
+              </div>
+            </div>
+
+            {/* Official Social Media Profiles & Handles (Footer Display & Direct Links) */}
+            <div className="space-y-4 pt-4 border-t">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Share2 className="w-4 h-4 text-[#F52D56]" />
+                  <h3 className="text-sm font-black text-gray-900 uppercase">
+                    Official Social Profiles & Handles (Footer Badges)
+                  </h3>
+                </div>
+                <span className="px-2.5 py-0.5 rounded-full bg-rose-50 text-[#F52D56] text-[10px] font-black uppercase tracking-wider">
+                  Developer Exclusive
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                Set your Instagram username, X.com handle, and Facebook page or search name. These will be prominently displayed alongside their official icons at the bottom of the website, allowing visitors to connect directly.
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                {/* Instagram */}
+                <div className="p-4 rounded-2xl bg-gray-50/80 border border-gray-200/90 space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-bold text-gray-900">
+                    <Instagram className="w-4 h-4 text-[#F52D56]" />
+                    <span>Instagram Username</span>
+                  </div>
+                  <input
+                    type="text"
+                    value={siteSettingsForm.socialHandles?.instagram ?? ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const clean = val.replace(/^@/, '').trim();
+                      setSiteSettingsForm({
+                        ...siteSettingsForm,
+                        socialHandles: {
+                          ...siteSettingsForm.socialHandles,
+                          instagram: val
+                        },
+                        socialLinks: {
+                          ...siteSettingsForm.socialLinks,
+                          instagram: val.startsWith('http') ? val : (clean ? `https://instagram.com/${clean}` : '')
+                        }
+                      });
+                    }}
+                    placeholder="e.g. jyadakharido or @username"
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-xl text-xs font-semibold text-gray-800 focus:border-[#F52D56] outline-none"
+                  />
+                  <p className="text-[10px] text-gray-500">
+                    Footer shows: <strong className="text-gray-700">@{siteSettingsForm.socialHandles?.instagram?.replace(/^@/, '') || 'username'}</strong>
+                  </p>
+                </div>
+
+                {/* X.com */}
+                <div className="p-4 rounded-2xl bg-gray-50/80 border border-gray-200/90 space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-bold text-gray-900">
+                    <XIcon className="w-3.5 h-3.5 text-black" />
+                    <span>X.com (Twitter) Handle</span>
+                  </div>
+                  <input
+                    type="text"
+                    value={siteSettingsForm.socialHandles?.x ?? ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const clean = val.replace(/^@/, '').trim();
+                      setSiteSettingsForm({
+                        ...siteSettingsForm,
+                        socialHandles: {
+                          ...siteSettingsForm.socialHandles,
+                          x: val
+                        },
+                        socialLinks: {
+                          ...siteSettingsForm.socialLinks,
+                          twitter: val.startsWith('http') ? val : (clean ? `https://x.com/${clean}` : '')
+                        }
+                      });
+                    }}
+                    placeholder="e.g. jyadakharido or @username"
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-xl text-xs font-semibold text-gray-800 focus:border-[#F52D56] outline-none"
+                  />
+                  <p className="text-[10px] text-gray-500">
+                    Footer shows: <strong className="text-gray-700">@{siteSettingsForm.socialHandles?.x?.replace(/^@/, '') || 'username'}</strong>
+                  </p>
+                </div>
+
+                {/* Facebook */}
+                <div className="p-4 rounded-2xl bg-gray-50/80 border border-gray-200/90 space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-bold text-gray-900">
+                    <Facebook className="w-4 h-4 text-blue-600" />
+                    <span>Facebook Search Name / Page</span>
+                  </div>
+                  <input
+                    type="text"
+                    value={siteSettingsForm.socialHandles?.facebook ?? ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const clean = val.replace(/^@/, '').trim();
+                      const fbUrl = val.startsWith('http')
+                        ? val
+                        : (val.includes(' ')
+                          ? `https://www.facebook.com/search/top?q=${encodeURIComponent(val.trim())}`
+                          : (clean ? `https://facebook.com/${clean}` : ''));
+                      setSiteSettingsForm({
+                        ...siteSettingsForm,
+                        socialHandles: {
+                          ...siteSettingsForm.socialHandles,
+                          facebook: val
+                        },
+                        socialLinks: {
+                          ...siteSettingsForm.socialLinks,
+                          facebook: fbUrl
+                        }
+                      });
+                    }}
+                    placeholder="e.g. Jyada Kharido Official or username"
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-xl text-xs font-semibold text-gray-800 focus:border-[#F52D56] outline-none"
+                  />
+                  <p className="text-[10px] text-gray-500">
+                    Footer shows: <strong className="text-gray-700">{siteSettingsForm.socialHandles?.facebook || 'Page / Search Name'}</strong>
+                  </p>
+                </div>
+              </div>
+
+              {/* Live Preview Box */}
+              <div className="p-3.5 rounded-xl bg-white border border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <span className="font-bold text-gray-500 text-[11px] uppercase tracking-wide">Live Footer Preview:</span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-50 text-[#F52D56] font-bold text-[11px]">
+                    <Instagram className="w-3.5 h-3.5" />
+                    <span>@{siteSettingsForm.socialHandles?.instagram?.replace(/^@/, '') || 'jyadakharido'}</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-100 text-gray-900 font-bold text-[11px]">
+                    <XIcon className="w-3 h-3" />
+                    <span>@{siteSettingsForm.socialHandles?.x?.replace(/^@/, '') || 'jyadakharido'}</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 font-bold text-[11px]">
+                    <Facebook className="w-3.5 h-3.5" />
+                    <span>{siteSettingsForm.socialHandles?.facebook || 'Jyada Kharido Official'}</span>
+                  </span>
                 </div>
               </div>
             </div>
@@ -1779,6 +2407,98 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
                 }`}
               >
                 {confirmModal.confirmText || 'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DEDICATED CATEGORY DELETION MODAL */}
+      {categoryDeleteTarget && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-md w-full space-y-5 shadow-2xl border border-gray-200 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center shrink-0">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div className="space-y-1 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-[10px] font-bold uppercase tracking-wider">
+                    Delete Category
+                  </span>
+                  <span className="text-xs text-gray-400 font-mono">
+                    {categoryDeleteTarget.id}
+                  </span>
+                </div>
+                <h3 className="text-lg font-black text-gray-900 uppercase">
+                  {categoryDeleteTarget.name}
+                </h3>
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-600 leading-relaxed">
+              Are you sure you want to permanently delete this category entry from storage? This action cannot be undone.
+            </p>
+
+            {/* Product handling option if category has products */}
+            <div className="p-3.5 bg-gray-50 rounded-2xl border border-gray-200 space-y-2.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-gray-800">
+                  Assigned Products
+                </span>
+                <span className={`px-2 py-0.5 rounded-md font-bold text-[11px] ${
+                  categoryDeleteTarget.productCount > 0 
+                    ? 'bg-amber-100 text-amber-800' 
+                    : 'bg-gray-200 text-gray-700'
+                }`}>
+                  📦 {categoryDeleteTarget.productCount} Product{categoryDeleteTarget.productCount === 1 ? '' : 's'}
+                </span>
+              </div>
+
+              {categoryDeleteTarget.productCount > 0 ? (
+                <label className="flex items-start gap-2.5 pt-1 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={categoryDeleteTarget.deleteProducts}
+                    onChange={(e) => setCategoryDeleteTarget({
+                      ...categoryDeleteTarget,
+                      deleteProducts: e.target.checked
+                    })}
+                    className="mt-0.5 w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500 cursor-pointer"
+                  />
+                  <div className="text-xs">
+                    <span className="font-bold text-gray-900 block">
+                      Also permanently delete all {categoryDeleteTarget.productCount} product(s) in this category
+                    </span>
+                    <span className="text-[11px] text-gray-500 block leading-tight pt-0.5">
+                      {categoryDeleteTarget.deleteProducts
+                        ? 'All associated products will be completely erased from storage.'
+                        : 'If unchecked, products will be preserved and moved to "General" category.'}
+                    </span>
+                  </div>
+                </label>
+              ) : (
+                <p className="text-[11px] text-gray-500">
+                  No products are currently attached to this category.
+                </p>
+              )}
+            </div>
+
+            <div className="flex gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={() => setCategoryDeleteTarget(null)}
+                className="flex-1 py-2.5 px-4 rounded-xl border border-gray-200 text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleExecuteDeleteCategory}
+                className="flex-1 py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-700 transition-colors cursor-pointer shadow-sm flex items-center justify-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete Category</span>
               </button>
             </div>
           </div>

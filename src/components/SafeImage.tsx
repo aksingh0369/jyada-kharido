@@ -62,8 +62,12 @@ export const SafeImage: React.FC<SafeImageProps> = ({
     setIsLoaded(true);
   };
 
+  const resolvedContainerClass = containerClassName !== undefined 
+    ? containerClassName 
+    : (className.includes('w-full') && className.includes('h-full') ? 'w-full h-full' : '');
+
   return (
-    <div className={`relative overflow-hidden flex items-center justify-center ${containerClassName}`}>
+    <div className={`relative overflow-hidden flex items-center justify-center ${resolvedContainerClass}`}>
       {/* Loading Skeleton */}
       {!isLoaded && !hasError && (
         <div className="absolute inset-0 bg-gray-200/70 animate-pulse rounded-inherit" />

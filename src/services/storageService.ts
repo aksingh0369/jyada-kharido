@@ -31,24 +31,44 @@ export class StorageService {
     let list: Product[] = [];
     if (!raw) {
       list = INITIAL_PRODUCTS;
-      localStorage.setItem(PRODUCTS_KEY, JSON.stringify(list));
+      try {
+        localStorage.setItem(PRODUCTS_KEY, JSON.stringify(list));
+      } catch (e) {
+        console.warn('Storage write error on initial products:', e);
+      }
     } else {
       try {
         list = JSON.parse(raw);
+        if (!Array.isArray(list) || list.length === 0) {
+          list = INITIAL_PRODUCTS;
+        } else {
+          // If stored products list is missing any of the baseline initial products, merge them so categories are populated
+          const existingIds = new Set(list.map(p => p.id));
+          const missingBaselines = INITIAL_PRODUCTS.filter(p => !existingIds.has(p.id));
+          if (missingBaselines.length > 0) {
+            list = [...list, ...missingBaselines];
+            try {
+              localStorage.setItem(PRODUCTS_KEY, JSON.stringify(list));
+            } catch (e) {
+              console.warn('Storage write error on merging baseline products:', e);
+            }
+          }
+        }
       } catch {
         list = INITIAL_PRODUCTS;
       }
     }
 
-    // Backwards-compatible normalization on read without losing original properties
-    list = list.map(p => ({
+    // Ensure every single product has a valid unique ID and normalized media
+    list = list.map((p, i) => ({
       ...p,
+      id: p.id && p.id.trim() !== '' ? p.id : ('prod-auto-' + Date.now() + '-' + i),
       primaryImage: getProductImage(p),
       images: getProductGalleryImages(p)
     }));
 
     if (!includeInactive) {
-      return list.filter(p => p.active);
+      return list.filter(c => c.active);
     }
     return list;
   }
@@ -60,7 +80,11 @@ export class StorageService {
 
   public static saveProduct(product: Partial<Product> & { name: string; categoryId: string }): Product {
     const all = this.getProducts(true);
-    const existingIndex = all.findIndex(p => p.id === product.id);
+    
+    // Strict ID check: Only update existing if product.id is an explicit, non-empty string!
+    // Never allow undefined or blank id to match or overwrite an existing item.
+    const hasValidId = Boolean(product.id && typeof product.id === 'string' && product.id.trim() !== '');
+    const existingIndex = hasValidId ? all.findIndex(p => p.id === product.id) : -1;
 
     const now = new Date().toISOString();
 
@@ -88,8 +112,9 @@ export class StorageService {
       } as Product;
       all[existingIndex] = saved;
     } else {
+      const generatedId = hasValidId ? product.id! : ('prod-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7));
       saved = {
-        id: product.id || 'prod-' + Date.now(),
+        id: generatedId,
         name: product.name,
         brand: product.brand || 'Generic',
         categoryId: product.categoryId,
@@ -114,7 +139,11 @@ export class StorageService {
       all.unshift(saved);
     }
 
-    localStorage.setItem(PRODUCTS_KEY, JSON.stringify(all));
+    try {
+      localStorage.setItem(PRODUCTS_KEY, JSON.stringify(all));
+    } catch (err) {
+      console.error('Failed to write products to localStorage:', err);
+    }
     return saved;
   }
 
@@ -145,14 +174,18 @@ export class StorageService {
     if (!orig) return null;
     const copy: Product = {
       ...orig,
-      id: 'prod-' + Date.now(),
+      id: 'prod-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
       name: `${orig.name} (Copy)`,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
     const all = this.getProducts(true);
     all.unshift(copy);
-    localStorage.setItem(PRODUCTS_KEY, JSON.stringify(all));
+    try {
+      localStorage.setItem(PRODUCTS_KEY, JSON.stringify(all));
+    } catch (err) {
+      console.error('Failed to duplicate product in storage:', err);
+    }
     return copy;
   }
 
@@ -227,48 +260,88 @@ export class StorageService {
       all.push(saved);
     }
 
-    localStorage.setItem(CATEGORIES_KEY, JSON.stringify(all));
+    try {
+      localStorage.setItem(CATEGORIES_KEY, JSON.stringify(all));
+    } catch (err) {
+      console.error('Failed to save category to localStorage:', err);
+    }
     return saved;
   }
 
-  public static deleteCategory(idOrSlugOrName: string): boolean {
+  public static deleteCategory(idOrSlugOrName: string, deleteAssociatedProducts: boolean = false): boolean {
+    if (!idOrSlugOrName || !idOrSlugOrName.trim()) return false;
     const all = this.getCategories(true);
-    const target = (idOrSlugOrName || '').trim().toLowerCase();
-    const filtered = all.filter(c => 
-      c.id !== idOrSlugOrName && 
-      c.id.toLowerCase() !== target &&
-      c.slug?.toLowerCase() !== target && 
-      c.name?.toLowerCase() !== target
+    const target = idOrSlugOrName.trim().toLowerCase();
+    
+    // Locate the exact category entry to remove
+    const targetCat = all.find(c => 
+      c.id === idOrSlugOrName || 
+      c.id.toLowerCase() === target ||
+      (c.slug && c.slug.toLowerCase() === target) ||
+      (c.name && c.name.toLowerCase() === target)
     );
-    if (filtered.length !== all.length) {
-      localStorage.setItem(CATEGORIES_KEY, JSON.stringify(filtered));
 
-      // Reassign any products pointing to this category so they don't break
-      const prods = this.getProducts(true);
-      const fallbackCat = filtered[0];
+    if (!targetCat) {
+      console.warn(`Category "${idOrSlugOrName}" not found in storage.`);
+      return false;
+    }
+
+    // Filter out the category by its exact unique ID
+    const filtered = all.filter(c => c.id !== targetCat.id);
+    
+    try {
+      localStorage.setItem(CATEGORIES_KEY, JSON.stringify(filtered));
+    } catch (err) {
+      console.error('Failed to write updated categories to localStorage:', err);
+      return false;
+    }
+
+    // Handle products assigned to this category
+    const prods = this.getProducts(true);
+    const targetIds = new Set([
+      targetCat.id.toLowerCase(),
+      targetCat.slug?.toLowerCase(),
+      targetCat.name.toLowerCase()
+    ].filter(Boolean));
+
+    if (deleteAssociatedProducts) {
+      // Completely remove all products belonging to this deleted category from storage
+      const remainingProds = prods.filter(p => {
+        const catIdMatch = p.categoryId && targetIds.has(p.categoryId.toLowerCase());
+        const catNameMatch = p.categoryName && targetIds.has(p.categoryName.toLowerCase());
+        return !catIdMatch && !catNameMatch;
+      });
+      try {
+        localStorage.setItem(PRODUCTS_KEY, JSON.stringify(remainingProds));
+      } catch (err) {
+        console.error('Failed to remove products for deleted category:', err);
+      }
+    } else {
+      // Reassign products to a clean "General" category rather than stealthily disguising them as another category
       let productsModified = false;
       const updatedProds = prods.map(p => {
-        if (
-          p.categoryId === idOrSlugOrName || 
-          p.categoryId?.toLowerCase() === target || 
-          p.categoryName?.toLowerCase() === target
-        ) {
+        const catIdMatch = p.categoryId && targetIds.has(p.categoryId.toLowerCase());
+        const catNameMatch = p.categoryName && targetIds.has(p.categoryName.toLowerCase());
+        if (catIdMatch || catNameMatch) {
           productsModified = true;
           return {
             ...p,
-            categoryId: fallbackCat ? fallbackCat.id : 'cat-general',
-            categoryName: fallbackCat ? fallbackCat.name : 'General'
+            categoryId: 'cat-general',
+            categoryName: 'General'
           };
         }
         return p;
       });
       if (productsModified) {
-        localStorage.setItem(PRODUCTS_KEY, JSON.stringify(updatedProds));
+        try {
+          localStorage.setItem(PRODUCTS_KEY, JSON.stringify(updatedProds));
+        } catch (err) {
+          console.error('Failed to reassign products for deleted category:', err);
+        }
       }
-
-      return true;
     }
-    return false;
+
+    return true;
   }
 
   // -------------------------------------------------------------
@@ -338,10 +411,18 @@ export class StorageService {
     try {
       const parsed = JSON.parse(raw);
       // Migrate or apply user's affiliate link if missing or old demo URL
-      if (!parsed.amazonStoreUrl || parsed.amazonStoreUrl.includes('jyadakharido-21')) {
-        parsed.amazonStoreUrl = 'https://link.amazon/B0eiXrBNR';
+      if (!parsed.amazonStoreUrl || parsed.amazonStoreUrl.includes('jyadakharido-21') || parsed.amazonStoreUrl.includes('B0eiXrBNR')) {
+        parsed.amazonStoreUrl = 'https://link.amazon/B012S1jyj';
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...INITIAL_SITE_SETTINGS, ...parsed }));
       }
-      return { ...INITIAL_SITE_SETTINGS, ...parsed };
+      return { 
+        ...INITIAL_SITE_SETTINGS, 
+        ...parsed,
+        socialHandles: {
+          ...INITIAL_SITE_SETTINGS.socialHandles,
+          ...(parsed.socialHandles || {})
+        }
+      };
     } catch {
       return INITIAL_SITE_SETTINGS;
     }

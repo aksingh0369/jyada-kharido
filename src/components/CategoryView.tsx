@@ -87,32 +87,34 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
 
       {/* Category Banner Card */}
       <div 
-        className="rounded-3xl p-6 sm:p-10 mb-8 text-white relative overflow-hidden flex flex-col justify-center min-h-[200px]"
-        style={{ backgroundColor: category.bgColor }}
+        className="rounded-3xl p-6 sm:p-10 mb-8 text-white relative overflow-hidden flex flex-col justify-center min-h-[220px] sm:min-h-[260px] bg-gray-950 border border-gray-800"
       >
-        <div className="relative z-10 max-w-xl space-y-2">
-          <span className="text-xs font-extrabold uppercase tracking-widest opacity-80" style={{ color: category.textColor }}>
-            {category.shortLabel || 'Curated Category'}
-          </span>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black uppercase tracking-tight" style={{ color: category.textColor }}>
-            {category.name}
-          </h1>
-          <p className="text-xs sm:text-sm font-medium opacity-90 leading-relaxed" style={{ color: category.textColor }}>
-            {category.description || 'Explore our handpicked collection with live Amazon deals, verified reviews, and prime delivery.'}
-          </p>
-          <p className="text-xs font-bold pt-1 opacity-80" style={{ color: category.textColor }}>
-            {filteredProducts.length} Products Found
-          </p>
-        </div>
-
-        <div className="absolute right-0 top-0 bottom-0 w-1/3 flex items-center justify-end p-4 pointer-events-none opacity-40 sm:opacity-90">
+        {/* Full Image Background with high-contrast gradient overlay */}
+        <div className="absolute inset-0 z-0 overflow-hidden">
           <SafeImage
             src={getCategoryImage(category)}
             alt={category.name}
             type="category"
             entityId={category.id}
-            className="max-h-full max-w-full object-contain drop-shadow-xl transform scale-110"
+            className="w-full h-full object-cover opacity-60 transform scale-105"
           />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/70 to-black/30 pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+        </div>
+
+        <div className="relative z-10 max-w-xl space-y-2">
+          <span className="text-xs font-extrabold uppercase tracking-widest text-[#F52D56] bg-black/40 backdrop-blur-xs px-3 py-1 rounded-full border border-white/10 inline-block">
+            {category.shortLabel || 'Curated Category'}
+          </span>
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black uppercase tracking-tight text-white drop-shadow-md">
+            {category.name}
+          </h1>
+          <p className="text-xs sm:text-sm font-medium text-gray-200 leading-relaxed drop-shadow-sm">
+            {category.description || 'Explore our handpicked collection with live Amazon deals, verified reviews, and prime delivery.'}
+          </p>
+          <p className="text-xs font-bold pt-1 text-gray-300">
+            {filteredProducts.length} Products Found
+          </p>
         </div>
       </div>
 
