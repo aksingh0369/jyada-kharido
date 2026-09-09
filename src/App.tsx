@@ -3,12 +3,15 @@ import {
   Sparkles, 
   ShoppingBag, 
   ArrowRight, 
+  ArrowUp,
   Filter, 
   Flame, 
   TrendingUp,
   Tag,
-  Lock
+  Lock,
+  ShieldCheck
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Navbar } from './components/Navbar';
 import { Hero } from './components/Hero';
 import { CategoryGrid } from './components/CategoryGrid';
@@ -41,8 +44,8 @@ export default function App() {
   const [blogs, setBlogs] = useState<Blog[]>([]);
 
   // User & Wishlist
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
-  const [wishlist, setWishlist] = useState<string[]>([]);
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => AuthService.getCurrentUser());
+  const [wishlist, setWishlist] = useState<string[]>(() => AuthService.getWishlist());
 
   // Navigation / Page Routing
   const [currentPage, setCurrentPage] = useState<string>('home');
@@ -53,10 +56,24 @@ export default function App() {
   // Home Products Filter Tab
   const [homeProductFilter, setHomeProductFilter] = useState<string>('all');
 
+  // Developer Dashboard routing state
+  const [dashboardTab, setDashboardTab] = useState<'products' | 'categories' | 'festivals' | 'settings' | 'blogs' | 'media-health'>('products');
+  const [dashboardAutoNewCategory, setDashboardAutoNewCategory] = useState(false);
+  const [dashboardCategoryToEdit, setDashboardCategoryToEdit] = useState<Category | null>(null);
+
   // Modals
   const [searchOpen, setSearchOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [aiAssistantOpen, setAiAssistantOpen] = useState(false);
+  const [showBackToTop, setShowBackToTop] = useState(false);
+
+  useEffect(() => {
+    const checkScroll = () => {
+      setShowBackToTop(window.scrollY > 400);
+    };
+    window.addEventListener('scroll', checkScroll, { passive: true });
+    return () => window.removeEventListener('scroll', checkScroll);
+  }, []);
 
   // Load / Refresh Data
   const refreshData = () => {
@@ -153,6 +170,14 @@ export default function App() {
     navigate('category-detail', { category: category.slug });
   };
 
+  // Direct Edit Category handler (Admin)
+  const handleEditCategory = (category: Category) => {
+    setDashboardTab('categories');
+    setDashboardCategoryToEdit(category);
+    setDashboardAutoNewCategory(false);
+    navigate('dashboard');
+  };
+
   // Home filter tabs
   const homeFilteredProducts = useMemo(() => {
     const activeProducts = products.filter(p => p.active);
@@ -194,8 +219,15 @@ export default function App() {
 
       {/* MAIN CONTENT AREA */}
       <main className="flex-1">
-
-        {/* 1. DEVELOPER / ADMIN CMS DASHBOARD */}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentPage}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.22, ease: "easeOut" }}
+          >
+            {/* 1. DEVELOPER / ADMIN CMS DASHBOARD */}
         {currentPage === 'dashboard' && (
           currentUser?.role === 'admin' ? (
             <DeveloperDashboard
@@ -206,29 +238,44 @@ export default function App() {
               settings={settings}
               onRefreshData={refreshData}
               onClose={() => navigate('home')}
+              initialTab={dashboardTab}
+              autoOpenNewCategory={dashboardAutoNewCategory}
+              categoryToEdit={dashboardCategoryToEdit}
             />
           ) : (
-            <div className="max-w-md mx-auto my-20 p-8 bg-white rounded-3xl border border-gray-200 text-center shadow-lg space-y-4">
-              <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center mx-auto">
-                <Lock className="w-6 h-6" />
+            <div className="max-w-md mx-auto my-20 p-8 bg-white rounded-3xl border border-gray-200 text-center shadow-xl space-y-4 animate-in fade-in zoom-in-95">
+              <div className="w-14 h-14 rounded-2xl bg-rose-50 text-[#F52D56] flex items-center justify-center mx-auto shadow-sm">
+                <ShieldCheck className="w-7 h-7" />
               </div>
-              <h2 className="text-xl font-black text-gray-900 uppercase">Admin Access Restricted</h2>
-              <p className="text-xs text-gray-500">
-                Visitor accounts are disabled. You must be logged in with an authorized Administrator account to view the Developer CMS.
+              <h2 className="text-xl font-black text-gray-900 uppercase">Admin Access Required</h2>
+              <p className="text-xs text-gray-600">
+                You are currently in guest mode. Sign in with the store administrator account (<strong>aksingh020709@gmail.com</strong>) to manage products, categories, and settings.
               </p>
-              <div className="flex gap-2 justify-center pt-2">
+              <div className="flex flex-col gap-2.5 pt-2">
                 <button
-                  onClick={() => navigate('home')}
-                  className="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold cursor-pointer"
+                  onClick={() => {
+                    const admin = AuthService.quickAdminLogin();
+                    setCurrentUser(admin);
+                  }}
+                  className="w-full py-3 px-4 rounded-xl bg-[#F52D56] hover:bg-[#D82C4A] text-white text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-md hover:scale-[1.01] active:scale-[0.99] transition-all"
                 >
-                  Return Home
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>⚡ 1-Click Sign In as Admin</span>
                 </button>
-                <button
-                  onClick={() => setAuthOpen(true)}
-                  className="px-4 py-2 rounded-xl bg-[#F52D56] hover:bg-[#D82C4A] text-white text-xs font-bold cursor-pointer"
-                >
-                  Admin Login
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => navigate('home')}
+                    className="flex-1 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold cursor-pointer transition-colors"
+                  >
+                    Return Home
+                  </button>
+                  <button
+                    onClick={() => setAuthOpen(true)}
+                    className="flex-1 py-2.5 rounded-xl bg-gray-900 hover:bg-black text-white text-xs font-bold cursor-pointer transition-colors"
+                  >
+                    Sign In with Email
+                  </button>
+                </div>
               </div>
             </div>
           )
@@ -254,7 +301,7 @@ export default function App() {
             category={selectedCategory}
             products={products.filter(p => 
               p.active && (
-                p.categoryId === selectedCategory.id ||
+                p.categoryId === selectedCategory.id || 
                 p.categoryId?.toLowerCase() === selectedCategory.id.toLowerCase() ||
                 p.categoryId?.toLowerCase() === selectedCategory.slug?.toLowerCase() ||
                 p.categoryName?.toLowerCase() === selectedCategory.name.toLowerCase() ||
@@ -265,6 +312,8 @@ export default function App() {
             onToggleWishlist={handleToggleWishlist}
             onViewProduct={handleSelectProduct}
             onBack={() => navigate('categories')}
+            isAdmin={currentUser?.role === 'admin'}
+            onEditCategory={handleEditCategory}
           />
         )}
 
@@ -274,6 +323,14 @@ export default function App() {
             <CategoryGrid
               categories={categories}
               onSelectCategory={handleSelectCategory}
+              isAdmin={currentUser?.role === 'admin'}
+              onAddCategory={() => {
+                setDashboardTab('categories');
+                setDashboardCategoryToEdit(null);
+                setDashboardAutoNewCategory(true);
+                navigate('dashboard');
+              }}
+              onEditCategory={handleEditCategory}
             />
           </div>
         )}
@@ -393,6 +450,14 @@ export default function App() {
             <CategoryGrid
               categories={categories}
               onSelectCategory={handleSelectCategory}
+              isAdmin={currentUser?.role === 'admin'}
+              onAddCategory={() => {
+                setDashboardTab('categories');
+                setDashboardCategoryToEdit(null);
+                setDashboardAutoNewCategory(true);
+                navigate('dashboard');
+              }}
+              onEditCategory={handleEditCategory}
             />
 
             {/* SERVICE FEATURE BAR (Free Shipping, Money Guarantee, etc.) */}
@@ -491,6 +556,8 @@ export default function App() {
 
           </div>
         )}
+          </motion.div>
+        </AnimatePresence>
 
       </main>
 
@@ -518,17 +585,39 @@ export default function App() {
         }}
       />
 
-      {/* Floating AI Shopping Guide Button */}
-      <button
-        onClick={() => setAiAssistantOpen(true)}
-        className="fixed bottom-6 right-6 z-40 bg-gradient-to-r from-purple-600 via-[#F52D56] to-pink-600 text-white px-4 py-3 rounded-full shadow-xl hover:shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-2 text-xs font-black cursor-pointer group"
-        title="Chat with Jyada Kharido AI Shopping Guide"
-        id="btn-floating-ai-guide"
-      >
-        <Sparkles className="w-4 h-4 animate-spin text-yellow-300" style={{ animationDuration: '4s' }} />
-        <span className="hidden sm:inline">Ask AI Deals Guide</span>
-        <span className="sm:hidden">AI Deals</span>
-      </button>
+      {/* Floating Action Controls: Back to Top & AI Deals Assistant */}
+      <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3 pointer-events-none">
+        <AnimatePresence>
+          {showBackToTop && (
+            <motion.button
+              initial={{ opacity: 0, scale: 0.8, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.8, y: 10 }}
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              className="w-11 h-11 rounded-full bg-white text-gray-800 shadow-xl border border-gray-200 flex items-center justify-center cursor-pointer pointer-events-auto hover:bg-gray-50 transition-colors"
+              title="Scroll to Top"
+              aria-label="Scroll to Top"
+            >
+              <ArrowUp className="w-5 h-5 text-gray-700" />
+            </motion.button>
+          )}
+        </AnimatePresence>
+
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setAiAssistantOpen(true)}
+          className="pointer-events-auto bg-gradient-to-r from-purple-600 via-[#F52D56] to-pink-600 text-white px-4 py-3 rounded-full shadow-xl hover:shadow-2xl transition-all flex items-center gap-2 text-xs font-black cursor-pointer group"
+          title="Chat with Jyada Kharido AI Shopping Guide"
+          id="btn-floating-ai-guide"
+        >
+          <Sparkles className="w-4 h-4 animate-spin text-yellow-300" style={{ animationDuration: '4s' }} />
+          <span className="hidden sm:inline">Ask AI Deals Guide</span>
+          <span className="sm:hidden">AI Deals</span>
+        </motion.button>
+      </div>
 
       {/* AI Assistant Modal */}
       <AiAssistantModal

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Filter, ArrowUpDown, ArrowLeft } from 'lucide-react';
+import { Filter, ArrowUpDown, ArrowLeft, Edit3 } from 'lucide-react';
 import { Category, Product } from '../types';
 import { ProductCard } from './ProductCard';
 import { SafeImage } from './SafeImage';
@@ -12,6 +12,8 @@ interface CategoryViewProps {
   onToggleWishlist: (id: string) => void;
   onViewProduct: (product: Product) => void;
   onBack: () => void;
+  isAdmin?: boolean;
+  onEditCategory?: (category: Category) => void;
 }
 
 export const CategoryView: React.FC<CategoryViewProps> = ({
@@ -20,7 +22,9 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
   wishlist,
   onToggleWishlist,
   onViewProduct,
-  onBack
+  onBack,
+  isAdmin,
+  onEditCategory
 }) => {
   const [selectedBrand, setSelectedBrand] = useState<string>('all');
   const [selectedDiscount, setSelectedDiscount] = useState<number>(0);
@@ -67,14 +71,27 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       
       {/* Back button & Breadcrumbs */}
-      <div className="flex items-center justify-between gap-4 mb-6">
-        <button
-          onClick={onBack}
-          className="inline-flex items-center gap-2 text-sm font-bold text-gray-600 hover:text-gray-900 bg-white border border-gray-200 px-4 py-2 rounded-full transition-colors cursor-pointer"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Back to All Categories</span>
-        </button>
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onBack}
+            className="inline-flex items-center gap-2 text-sm font-bold text-gray-600 hover:text-gray-900 bg-white border border-gray-200 px-4 py-2 rounded-full transition-colors cursor-pointer shadow-2xs"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back to All Categories</span>
+          </button>
+
+          {isAdmin && onEditCategory && (
+            <button
+              onClick={() => onEditCategory(category)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-amber-400 hover:bg-amber-300 text-gray-950 text-xs font-black transition-all shadow-xs cursor-pointer hover:scale-105 active:scale-95"
+              title="Edit this category configuration in Admin Dashboard"
+            >
+              <Edit3 className="w-3.5 h-3.5 text-gray-900" />
+              <span>✏️ Edit Category</span>
+            </button>
+          )}
+        </div>
 
         <nav className="hidden sm:flex items-center space-x-2 text-xs font-medium text-gray-500">
           <span className="hover:text-gray-900 cursor-pointer" onClick={onBack}>Home</span>
@@ -89,6 +106,20 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
       <div 
         className="rounded-3xl p-6 sm:p-10 mb-8 text-white relative overflow-hidden flex flex-col justify-center min-h-[220px] sm:min-h-[260px] bg-gray-950 border border-gray-800"
       >
+        {/* Admin Direct Edit in Banner */}
+        {isAdmin && onEditCategory && (
+          <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-20">
+            <button
+              onClick={() => onEditCategory(category)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-gray-950 text-xs font-black shadow-lg transition-transform hover:scale-105 active:scale-95 cursor-pointer"
+              title="Edit category settings, banner image, and colors"
+            >
+              <Edit3 className="w-3.5 h-3.5 text-gray-900" />
+              <span>Edit Category</span>
+            </button>
+          </div>
+        )}
+
         {/* Full Image Background with high-contrast gradient overlay */}
         <div className="absolute inset-0 z-0 overflow-hidden">
           <SafeImage

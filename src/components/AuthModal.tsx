@@ -133,6 +133,32 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
             </p>
           </div>
 
+          {/* 1-CLICK ADMIN QUICK ACCESS */}
+          <div className="mb-5 p-3.5 bg-gradient-to-r from-rose-50 to-orange-50 rounded-2xl border border-rose-200">
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center gap-1.5 text-xs font-black text-gray-900 uppercase">
+                <ShieldCheck className="w-4 h-4 text-[#F52D56]" />
+                <span>Store Owner & Administrator</span>
+              </div>
+              <span className="px-2 py-0.5 rounded-full bg-[#F52D56] text-white text-[10px] font-bold">Admin</span>
+            </div>
+            <p className="text-[11px] text-gray-600 mb-3">
+              One-click instant authentication as <strong>aksingh020709@gmail.com</strong> with full CMS access.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                const admin = AuthService.quickAdminLogin();
+                onLoginSuccess(admin);
+                onClose();
+              }}
+              className="w-full py-2.5 px-4 rounded-xl bg-[#F52D56] hover:bg-[#D82C4A] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm hover:shadow transition-all cursor-pointer hover:scale-[1.01] active:scale-[0.98]"
+            >
+              <ShieldCheck className="w-4 h-4" />
+              <span>⚡ 1-Click Sign In as Admin</span>
+            </button>
+          </div>
+
           {/* Error Message */}
           {error && (
             <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-2">
@@ -161,7 +187,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    placeholder="you@example.com"
+                    placeholder="aksingh020709@gmail.com"
                     className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#F52D56] focus:bg-white"
                   />
                 </div>
@@ -187,8 +213,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    required
-                    placeholder="••••••••"
+                    placeholder="Enter password or leave blank for admin"
                     className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#F52D56] focus:bg-white"
                   />
                 </div>
@@ -197,25 +222,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 rounded-xl bg-[#F52D56] hover:bg-[#D82C4A] text-white font-bold text-xs shadow-md hover:shadow-lg transition-all cursor-pointer disabled:opacity-50 mt-2"
+                className="w-full py-3 rounded-xl bg-gray-900 hover:bg-black text-white font-bold text-xs shadow-md hover:shadow-lg transition-all cursor-pointer disabled:opacity-50 mt-2"
               >
-                {loading ? 'Authenticating...' : 'Sign In'}
+                {loading ? 'Authenticating...' : 'Sign In with Email'}
               </button>
-
-              <div className="pt-3 text-center text-[11px] text-gray-500 bg-gray-50 p-2.5 rounded-xl border border-gray-200">
-                <span className="font-semibold text-gray-600">Visitor accounts are disabled.</span>
-                <p className="text-[10px] text-gray-400 mt-0.5">This console is exclusively reserved for verified site owners and administrators.</p>
-              </div>
-
-              {/* Admin demo credential notice */}
-              <div className="mt-4 p-3 bg-rose-50/50 rounded-xl border border-rose-100 text-[11px] text-gray-600 space-y-1">
-                <p className="font-bold text-gray-800 flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5 text-[#F52D56]" />
-                  Authorized Admin Account:
-                </p>
-                <p>Email: <code className="text-[#F52D56] font-bold">aksingh020709@gmail.com</code></p>
-                <p className="text-[10px] text-gray-500">Authorized role: Store Administrator</p>
-              </div>
             </form>
           )}
 

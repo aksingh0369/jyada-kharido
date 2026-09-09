@@ -60,12 +60,30 @@ export class StorageService {
     }
 
     // Ensure every single product has a valid unique ID and normalized media
-    list = list.map((p, i) => ({
-      ...p,
-      id: p.id && p.id.trim() !== '' ? p.id : ('prod-auto-' + Date.now() + '-' + i),
-      primaryImage: getProductImage(p),
-      images: getProductGalleryImages(p)
-    }));
+    let hadBaselineUpdate = false;
+    list = list.map((p, i) => {
+      let affiliateLink = p.affiliateLink;
+      if (p.id === 'prod-beats-solo-4' && p.affiliateLink !== 'https://link.amazon/B06cXgVyp') {
+        affiliateLink = 'https://link.amazon/B06cXgVyp';
+        hadBaselineUpdate = true;
+      }
+
+      return {
+        ...p,
+        affiliateLink,
+        id: p.id && p.id.trim() !== '' ? p.id : ('prod-auto-' + Date.now() + '-' + i),
+        primaryImage: getProductImage(p),
+        images: getProductGalleryImages(p)
+      };
+    });
+
+    if (hadBaselineUpdate) {
+      try {
+        localStorage.setItem(PRODUCTS_KEY, JSON.stringify(list));
+      } catch (e) {
+        console.warn('Storage write error on updating baseline affiliate link:', e);
+      }
+    }
 
     if (!includeInactive) {
       return list.filter(c => c.active);

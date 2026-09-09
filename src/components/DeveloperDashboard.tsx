@@ -52,6 +52,9 @@ interface DeveloperDashboardProps {
   settings: SiteSettings;
   onRefreshData: () => void;
   onClose: () => void;
+  initialTab?: 'products' | 'categories' | 'festivals' | 'settings' | 'blogs' | 'media-health';
+  autoOpenNewCategory?: boolean;
+  categoryToEdit?: Category | null;
 }
 
 export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
@@ -61,9 +64,14 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
   blogs,
   settings,
   onRefreshData,
-  onClose
+  onClose,
+  initialTab,
+  autoOpenNewCategory,
+  categoryToEdit
 }) => {
-  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'festivals' | 'settings' | 'blogs' | 'media-health'>('products');
+  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'festivals' | 'settings' | 'blogs' | 'media-health'>(
+    initialTab || (autoOpenNewCategory ? 'categories' : 'products')
+  );
 
   // CATEGORY FILTER STATE FOR PRODUCT INVENTORY
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -90,7 +98,21 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
   const [newPlatformLabel, setNewPlatformLabel] = useState('');
 
   // CATEGORY STATE
-  const [editingCategory, setEditingCategory] = useState<Partial<Category> | null>(null);
+  const [editingCategory, setEditingCategory] = useState<Partial<Category> | null>(
+    autoOpenNewCategory
+      ? {
+          name: '',
+          slug: '',
+          shortLabel: 'Trending',
+          description: '',
+          image: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=800&auto=format&fit=crop&q=80',
+          bgColor: '#18191B',
+          textColor: '#FFFFFF',
+          accentColor: '#EB3B5A',
+          buttonText: 'Browse'
+        }
+      : null
+  );
   const [categoryImageProgress, setCategoryImageProgress] = useState<number | null>(null);
 
   // FESTIVAL STATE
@@ -122,6 +144,44 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
   useEffect(() => {
     setSiteSettingsForm(settings);
   }, [settings]);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
+  useEffect(() => {
+    if (autoOpenNewCategory) {
+      setActiveTab('categories');
+      setEditingCategory({
+        name: '',
+        slug: '',
+        shortLabel: 'Trending',
+        description: '',
+        image: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=800&auto=format&fit=crop&q=80',
+        bgColor: '#18191B',
+        textColor: '#FFFFFF',
+        accentColor: '#EB3B5A',
+        buttonText: 'Browse'
+      });
+      setTimeout(() => {
+        const el = document.getElementById('category-edit-section');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+  }, [autoOpenNewCategory]);
+
+  useEffect(() => {
+    if (categoryToEdit) {
+      setActiveTab('categories');
+      setEditingCategory(categoryToEdit);
+      setTimeout(() => {
+        const el = document.getElementById('category-edit-section');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+  }, [categoryToEdit]);
 
   // AI & Form Validation State
   const [isAiGeneratingProduct, setIsAiGeneratingProduct] = useState(false);
@@ -454,15 +514,32 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
   // -------------------------------------------------------------
   const handleSaveCategory = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingCategory || !editingCategory.name) {
-      showNotification('Please enter a category name.', 'error');
+    if (!editingCategory || !editingCategory.name?.trim()) {
+      showNotification('Please enter a category title.', 'error');
       return;
     }
 
-    StorageService.saveCategory(editingCategory as any);
+    const cleanName = editingCategory.name.trim();
+    const cleanSlug = (editingCategory.slug?.trim() || cleanName).toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const cleanImg = (editingCategory.image?.trim() || editingCategory.imageUrl?.trim()) || 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=800&auto=format&fit=crop&q=80';
+
+    const catToSave = {
+      ...editingCategory,
+      name: cleanName,
+      slug: cleanSlug,
+      image: cleanImg,
+      imageUrl: cleanImg,
+      shortLabel: editingCategory.shortLabel?.trim() || 'Explore',
+      buttonText: editingCategory.buttonText?.trim() || 'Browse',
+      bgColor: editingCategory.bgColor || '#18191B',
+      textColor: editingCategory.textColor || '#FFFFFF',
+      accentColor: editingCategory.accentColor || '#EB3B5A'
+    };
+
+    StorageService.saveCategory(catToSave as any);
     setEditingCategory(null);
     onRefreshData();
-    showNotification('Category saved successfully!');
+    showNotification(`Category "${cleanName}" saved successfully!`);
   };
 
   const handleDeleteCategory = (id: string, name: string) => {
@@ -891,7 +968,31 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">Category *</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-bold text-gray-700">Category *</label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveTab('categories');
+                          setEditingCategory({
+                            name: '',
+                            slug: '',
+                            shortLabel: 'Trending',
+                            description: '',
+                            image: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=800&auto=format&fit=crop&q=80',
+                            bgColor: '#18191B',
+                            textColor: '#FFFFFF',
+                            accentColor: '#EB3B5A',
+                            buttonText: 'Browse'
+                          });
+                        }}
+                        className="text-[11px] font-bold text-[#F52D56] hover:underline flex items-center gap-0.5 cursor-pointer"
+                        title="Create a new category in Categories tab"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>+ Add New Category</span>
+                      </button>
+                    </div>
                     <select
                       value={editingProduct.categoryId || ''}
                       onChange={(e) => {
@@ -1369,34 +1470,79 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
                     </button>
                   );
                 })}
+
+                {/* Direct Add New Category shortcut */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('categories');
+                    setEditingCategory({
+                      name: '',
+                      slug: '',
+                      shortLabel: 'Trending',
+                      description: '',
+                      image: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=800&auto=format&fit=crop&q=80',
+                      bgColor: '#18191B',
+                      textColor: '#FFFFFF',
+                      accentColor: '#EB3B5A',
+                      buttonText: 'Browse'
+                    });
+                  }}
+                  className="px-3 py-1.5 rounded-xl border border-dashed border-rose-300 bg-rose-50/70 hover:bg-rose-100 text-[#F52D56] text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer shrink-0"
+                  title="Create a new store category"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ Add New Category</span>
+                </button>
               </div>
 
               {categoryFilter !== 'all' && (
-                <button
-                  onClick={() => {
-                    const selCat = categories.find(c => c.id === categoryFilter);
-                    setEditingProduct({
-                      name: '',
-                      brand: '',
-                      categoryId: categoryFilter,
-                      categoryName: selCat?.name || '',
-                      discountPercent: 20,
-                      affiliateLink: 'https://www.amazon.in/?tag=jyadakharido-21',
-                      shortDescription: '',
-                      description: '',
-                      images: [],
-                      primaryImage: '',
-                      specifications: { 'Connectivity': 'Bluetooth 5.3', 'Warranty': '1 Year Manufacturer' },
-                      featured: false,
-                      active: true,
-                      isNew: true
-                    });
-                  }}
-                  className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Add Product to {categories.find(c => c.id === categoryFilter)?.name}</span>
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => {
+                      const selCat = categories.find(c => c.id === categoryFilter);
+                      if (selCat) {
+                        setActiveTab('categories');
+                        setEditingCategory(selCat);
+                        setTimeout(() => {
+                          const el = document.getElementById('category-edit-section');
+                          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }, 50);
+                      }
+                    }}
+                    className="px-3.5 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-gray-950 text-xs font-black flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                    title={`Edit ${categories.find(c => c.id === categoryFilter)?.name} Category Settings`}
+                  >
+                    <Edit3 className="w-3.5 h-3.5 text-gray-950" />
+                    <span>Edit "{categories.find(c => c.id === categoryFilter)?.name}" Category</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      const selCat = categories.find(c => c.id === categoryFilter);
+                      setEditingProduct({
+                        name: '',
+                        brand: '',
+                        categoryId: categoryFilter,
+                        categoryName: selCat?.name || '',
+                        discountPercent: 20,
+                        affiliateLink: 'https://www.amazon.in/?tag=jyadakharido-21',
+                        shortDescription: '',
+                        description: '',
+                        images: [],
+                        primaryImage: '',
+                        specifications: { 'Connectivity': 'Bluetooth 5.3', 'Warranty': '1 Year Manufacturer' },
+                        featured: false,
+                        active: true,
+                        isNew: true
+                      });
+                    }}
+                    className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Product to {categories.find(c => c.id === categoryFilter)?.name}</span>
+                  </button>
+                </div>
               )}
             </div>
 
@@ -1508,56 +1654,163 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
       {/* TAB 2: CATEGORIES MANAGEMENT */}
       {activeTab === 'categories' && (
         <div className="space-y-8">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-gray-200 shadow-xs">
             <div>
-              <h2 className="text-xl font-black text-gray-900 uppercase">Category Collections</h2>
-              <p className="text-xs text-gray-500">Configure Bento card colors, headings, images, and reordering.</p>
+              <div className="flex items-center gap-2">
+                <Layers className="w-5 h-5 text-[#F52D56]" />
+                <h2 className="text-xl font-black text-gray-900 uppercase">Category Collections</h2>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">Configure Bento card colors, headings, images, reordering, and edit or create categories.</p>
             </div>
-            <button
-              onClick={() => setEditingCategory({
-                name: '',
-                slug: '',
-                shortLabel: 'Trending',
-                description: '',
-                image: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=800&auto=format&fit=crop&q=80',
-                bgColor: '#18191B',
-                textColor: '#FFFFFF',
-                accentColor: '#EB3B5A',
-                buttonText: 'Browse'
-              })}
-              className="px-4 py-2 rounded-xl bg-[#F52D56] hover:bg-[#D82C4A] text-white text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add Category</span>
-            </button>
+            
+            <div className="flex flex-wrap items-center gap-3">
+              {/* QUICK SELECT CATEGORY TO EDIT */}
+              <div className="flex items-center gap-2 bg-amber-50 border border-amber-300 rounded-2xl px-3 py-2 shadow-2xs">
+                <Edit3 className="w-4 h-4 text-amber-700 shrink-0" />
+                <span className="text-xs font-black text-amber-900 shrink-0">Edit Category:</span>
+                <select
+                  value={editingCategory?.id || ''}
+                  onChange={(e) => {
+                    const catId = e.target.value;
+                    if (!catId) {
+                      setEditingCategory(null);
+                      return;
+                    }
+                    const found = categories.find(c => c.id === catId);
+                    if (found) {
+                      setEditingCategory(found);
+                      setTimeout(() => {
+                        const el = document.getElementById('category-edit-section');
+                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }, 50);
+                    }
+                  }}
+                  className="bg-white border border-amber-300 rounded-xl px-2.5 py-1 text-xs font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
+                >
+                  <option value="">-- Choose Category to Edit --</option>
+                  {categories.map(c => (
+                    <option key={c.id} value={c.id}>
+                      ✏️ {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <button
+                onClick={() => {
+                  setEditingCategory({
+                    name: '',
+                    slug: '',
+                    shortLabel: 'Trending',
+                    description: '',
+                    image: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=800&auto=format&fit=crop&q=80',
+                    bgColor: '#18191B',
+                    textColor: '#FFFFFF',
+                    accentColor: '#EB3B5A',
+                    buttonText: 'Browse'
+                  });
+                  setTimeout(() => {
+                    const el = document.getElementById('category-edit-section');
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }, 50);
+                }}
+                className="px-5 py-2.5 rounded-xl bg-[#F52D56] hover:bg-[#D82C4A] text-white text-xs font-bold flex items-center justify-center gap-2 shadow-sm cursor-pointer transition-all hover:scale-105 active:scale-95 shrink-0"
+                id="btn-add-new-category"
+              >
+                <Plus className="w-4 h-4" />
+                <span>+ Add New Category</span>
+              </button>
+            </div>
           </div>
 
-          {/* EDIT CATEGORY MODAL */}
-          {editingCategory && (
-            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200 jk-card-shadow space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-lg font-black text-gray-900 uppercase">
-                    {editingCategory.id ? 'Edit Category' : 'New Bento Category'}
-                  </h3>
-                  {editingCategory.id && (
-                    <p className="text-xs text-gray-500 font-mono">ID: {editingCategory.id}</p>
-                  )}
+          {/* ADD NEW CATEGORY QUICK-START BANNER (When form is not opened) */}
+          {!editingCategory && (
+            <div 
+              onClick={() => {
+                setEditingCategory({
+                  name: '',
+                  slug: '',
+                  shortLabel: 'Trending',
+                  description: '',
+                  image: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=800&auto=format&fit=crop&q=80',
+                  bgColor: '#18191B',
+                  textColor: '#FFFFFF',
+                  accentColor: '#EB3B5A',
+                  buttonText: 'Browse'
+                });
+                setTimeout(() => {
+                  const el = document.getElementById('category-edit-section');
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 50);
+              }}
+              className="p-6 rounded-3xl border-2 border-dashed border-rose-300 bg-rose-50/50 hover:bg-rose-50 hover:border-[#F52D56] transition-all cursor-pointer flex flex-col sm:flex-row items-center justify-between gap-4 group shadow-2xs"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-[#F52D56] text-white flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform shrink-0">
+                  <Plus className="w-6 h-6" />
                 </div>
-                {editingCategory.id && (
+                <div>
+                  <h3 className="text-sm font-black text-gray-900 group-hover:text-[#F52D56] uppercase tracking-wide flex items-center gap-2">
+                    <span>+ Add New Category</span>
+                    <span className="px-2 py-0.5 rounded-full bg-[#F52D56]/10 text-[#F52D56] text-[10px] font-bold">New Bento Collection</span>
+                  </h3>
+                  <p className="text-xs text-gray-600 mt-0.5">
+                    Click here to create a new category collection, custom background colors, button labels, and curated product imagery.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="px-4 py-2 rounded-xl bg-white text-[#F52D56] border border-rose-200 text-xs font-bold shadow-xs group-hover:bg-[#F52D56] group-hover:text-white transition-colors cursor-pointer shrink-0"
+              >
+                Open Category Form →
+              </button>
+            </div>
+          )}
+
+          {/* EDIT / CREATE CATEGORY FORM */}
+          {editingCategory && (
+            <div className="bg-white rounded-3xl p-6 sm:p-8 border-2 border-amber-300 ring-4 ring-amber-100 jk-card-shadow space-y-4 transition-all animate-in fade-in zoom-in-95" id="category-edit-section">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-100">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
+                      editingCategory.id ? 'bg-amber-100 text-amber-950 border border-amber-300' : 'bg-rose-100 text-[#F52D56] border border-rose-300'
+                    }`}>
+                      {editingCategory.id ? '✏️ Editing Category' : '+ Creating New Category'}
+                    </span>
+                    {editingCategory.id && (
+                      <span className="text-xs text-gray-500 font-mono">Slug: {editingCategory.slug || editingCategory.id}</span>
+                    )}
+                  </div>
+                  <h3 className="text-xl font-black text-gray-900 uppercase mt-1">
+                    {editingCategory.id ? `Edit: ${editingCategory.name || 'Untitled Category'}` : 'Create New Category'}
+                  </h3>
+                </div>
+
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => {
-                      const id = editingCategory.id!;
-                      const name = editingCategory.name || 'Category';
-                      handleDeleteCategory(id, name);
-                    }}
-                    className="self-start sm:self-auto px-3.5 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
+                    onClick={() => setEditingCategory(null)}
+                    className="px-3.5 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold transition-colors cursor-pointer"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Delete Category</span>
+                    Cancel
                   </button>
-                )}
+                  {editingCategory.id && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const id = editingCategory.id!;
+                        const name = editingCategory.name || 'Category';
+                        handleDeleteCategory(id, name);
+                      }}
+                      className="px-3.5 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Delete</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
               <form onSubmit={handleSaveCategory} className="space-y-4">
@@ -1701,8 +1954,7 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
                         image: e.target.value,
                         imageUrl: e.target.value
                       })}
-                      required
-                      placeholder="https://... (Direct image URL or transparent PNG)"
+                      placeholder="https://... (Direct image URL or transparent PNG, optional)"
                       className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold"
                     />
                   </div>
@@ -1759,9 +2011,18 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
               return (
               <div 
                 key={cat.id} 
-                className="rounded-2xl p-5 border flex flex-col justify-between gap-4 shadow-xs"
+                className={`rounded-2xl p-5 border flex flex-col justify-between gap-4 shadow-xs transition-all relative ${
+                  editingCategory?.id === cat.id ? 'ring-4 ring-amber-400 scale-[1.02] shadow-md' : ''
+                }`}
                 style={{ backgroundColor: cat.bgColor, color: cat.textColor }}
               >
+                {editingCategory?.id === cat.id && (
+                  <div className="absolute -top-3 left-4 px-2.5 py-0.5 rounded-full bg-amber-400 text-gray-950 font-black text-[10px] shadow-sm flex items-center gap-1 z-10">
+                    <Edit3 className="w-3 h-3" />
+                    <span>Currently Editing</span>
+                  </div>
+                )}
+
                 <div className="flex items-start justify-between">
                   <div className="space-y-1 max-w-[65%]">
                     <span className="text-[10px] font-bold uppercase tracking-wider opacity-80">{cat.shortLabel}</span>
@@ -1773,11 +2034,46 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
                       <span className="text-[10px] opacity-70">Order #{idx + 1}</span>
                     </div>
                   </div>
-                  <img src={cat.image} alt={cat.name} className="w-14 h-14 object-contain shrink-0" />
+                  <div className="flex flex-col items-end gap-2 shrink-0">
+                    <img src={cat.image} alt={cat.name} className="w-14 h-14 object-contain" />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingCategory(cat);
+                        setTimeout(() => {
+                          const el = document.getElementById('category-edit-section');
+                          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }, 50);
+                      }}
+                      className="px-2 py-0.5 rounded-md bg-white/20 hover:bg-white/30 text-white text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                      title="Edit Category Settings"
+                    >
+                      <Edit3 className="w-3 h-3 text-amber-300" />
+                      <span>Edit</span>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-white/10">
                   <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingCategory(cat);
+                        setTimeout(() => {
+                          const el = document.getElementById('category-edit-section');
+                          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }, 50);
+                      }}
+                      className="px-2.5 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-gray-950 text-[11px] font-black flex items-center gap-1.5 cursor-pointer transition-all shadow-xs hover:scale-105 active:scale-95"
+                      title="Edit Category Details, Colors, and Image"
+                    >
+                      <Edit3 className="w-3.5 h-3.5 text-gray-950" />
+                      <span>Edit Category</span>
+                    </button>
+
                     <button
                       type="button"
                       onClick={() => {
@@ -1806,18 +2102,6 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
                       <Plus className="w-3.5 h-3.5" />
                       <span>+ Add Product</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCategoryFilter(cat.id);
-                        setActiveTab('products');
-                      }}
-                      className="px-2.5 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors"
-                      title="View all products in this category"
-                    >
-                      <Package className="w-3.5 h-3.5" />
-                      <span>View ({catProductCount})</span>
-                    </button>
                   </div>
 
                   <div className="flex items-center gap-1">
@@ -1844,14 +2128,6 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
 
                     <button
                       type="button"
-                      onClick={(e) => { e.stopPropagation(); setEditingCategory(cat); }}
-                      className="p-1.5 rounded-lg bg-black/40 hover:bg-black/60 text-white text-[11px] font-bold flex items-center cursor-pointer transition-colors"
-                      title="Edit Category Details"
-                    >
-                      <Edit3 className="w-3.5 h-3.5 text-amber-300" />
-                    </button>
-                    <button
-                      type="button"
                       onClick={(e) => { e.stopPropagation(); handleDeleteCategory(cat.id, cat.name); }}
                       className="p-1.5 rounded-lg bg-red-600/80 hover:bg-red-600 text-white text-[11px] font-bold flex items-center cursor-pointer transition-colors"
                       title="Delete Category"
@@ -1862,6 +2138,40 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
                 </div>
               </div>
             );})}
+
+            {/* Direct Add New Category Card in the grid */}
+            <div
+              onClick={() => {
+                setEditingCategory({
+                  name: '',
+                  slug: '',
+                  shortLabel: 'Trending',
+                  description: '',
+                  image: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=800&auto=format&fit=crop&q=80',
+                  bgColor: '#18191B',
+                  textColor: '#FFFFFF',
+                  accentColor: '#EB3B5A',
+                  buttonText: 'Browse'
+                });
+                window.scrollTo({ top: 120, behavior: 'smooth' });
+              }}
+              className="rounded-2xl p-6 border-2 border-dashed border-gray-300 hover:border-[#F52D56] bg-gray-50/70 hover:bg-rose-50/40 flex flex-col items-center justify-center text-center gap-3 transition-all cursor-pointer min-h-[190px] group shadow-2xs"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-white group-hover:bg-[#F52D56] group-hover:text-white text-gray-700 shadow-xs border border-gray-200 flex items-center justify-center transition-all group-hover:scale-110">
+                <Plus className="w-6 h-6" />
+              </div>
+              <div>
+                <h4 className="text-sm font-black text-gray-900 group-hover:text-[#F52D56] uppercase tracking-wide">
+                  + Add New Category
+                </h4>
+                <p className="text-xs text-gray-500 mt-1">
+                  Create a new Bento collection card for your store
+                </p>
+              </div>
+              <span className="text-[11px] font-bold text-[#F52D56] group-hover:underline">
+                Create Category →
+              </span>
+            </div>
           </div>
         </div>
       )}
