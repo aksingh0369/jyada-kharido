@@ -258,7 +258,7 @@ export default function App() {
               </div>
               <h2 className="text-xl font-black text-gray-900 uppercase">Admin Access Required</h2>
               <p className="text-xs text-gray-600">
-                You are currently in guest mode. Sign in with the store administrator account (<strong>aksingh020709@gmail.com</strong>) to manage products, categories, and settings.
+                You are currently in guest mode. Sign in with your authorized administrator account to manage products, categories, and settings.
               </p>
               <div className="flex flex-col gap-2.5 pt-2">
                 <button

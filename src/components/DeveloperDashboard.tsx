@@ -2742,7 +2742,7 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
                     </button>
                   </div>
                   <p className="text-[11px] text-gray-500 mt-1.5">
-                    Current active password is set to <strong>Aman3636@</strong>. Only authorized administrators with this password can enter Developer Mode.
+                    Only authorized administrators with this master password can enter Developer Mode.
                   </p>
                 </div>
               </div>

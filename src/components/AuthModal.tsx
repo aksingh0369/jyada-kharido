@@ -23,15 +23,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  if (!isOpen) return null;
-
   const resetForm = () => {
     setError(null);
     setSuccessMsg(null);
+    setEmail('');
     setPassword('');
     setConfirmPassword('');
     setTrustedContactName('');
   };
+
+  React.useEffect(() => {
+    if (isOpen) {
+      resetForm();
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -175,7 +182,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    placeholder="aksingh020709@gmail.com"
+                    autoComplete="email"
+                    placeholder="name@example.com"
                     className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#F52D56] focus:bg-white"
                   />
                 </div>
@@ -201,7 +209,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter password (e.g. Aman3636@ for admin)"
+                    required
+                    autoComplete="current-password"
+                    placeholder="••••••••••••"
                     className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#F52D56] focus:bg-white"
                   />
                 </div>
@@ -269,7 +279,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
                     value={trustedContactName}
                     onChange={(e) => setTrustedContactName(e.target.value)}
                     required
-                    placeholder="e.g. Aman or Priya (Kept hashed for password recovery)"
+                    placeholder="e.g. A private secret word or contact name only you know"
                     className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#F52D56] focus:bg-white"
                   />
                 </div>
@@ -312,7 +322,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  placeholder="you@example.com"
+                  placeholder="name@example.com"
                   className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#F52D56] focus:bg-white"
                 />
               </div>
@@ -326,7 +336,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
                   value={trustedContactName}
                   onChange={(e) => setTrustedContactName(e.target.value)}
                   required
-                  placeholder="The security contact name you set during signup"
+                  placeholder="Enter the secret recovery contact name"
                   className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#F52D56] focus:bg-white"
                 />
               </div>
