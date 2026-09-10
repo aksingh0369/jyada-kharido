@@ -124,18 +124,30 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
                 Fills 100% of card with object-cover - NO black cutoffs or blank areas
               */}
               <div className="absolute inset-0 z-0 overflow-hidden w-full h-full">
-                <SafeImage
-                  src={categoryImage}
-                  alt={cat.name}
-                  type="category"
-                  entityId={cat.id}
-                  containerClassName="w-full h-full absolute inset-0"
-                  className="w-full h-full object-cover object-center transform transition-transform duration-700 ease-out group-hover:scale-105"
-                />
+                {cat.videoUrl ? (
+                  <video
+                    src={cat.videoUrl}
+                    poster={categoryImage}
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    className="w-full h-full object-cover object-center transform transition-transform duration-700 ease-out group-hover:scale-105"
+                  />
+                ) : (
+                  <SafeImage
+                    src={categoryImage}
+                    alt={cat.name}
+                    type="category"
+                    entityId={cat.id}
+                    containerClassName="w-full h-full absolute inset-0"
+                    className="w-full h-full object-cover object-center transform transition-transform duration-700 ease-out group-hover:scale-105"
+                  />
+                )}
 
                 {/* 
                   Subtle gradient overlay:
-                  Keeps the photo bright and visible across the entire card,
+                  Keeps the photo/video bright and visible across the entire card,
                   while ensuring text and button at the bottom are 100% readable
                 */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent pointer-events-none" />
