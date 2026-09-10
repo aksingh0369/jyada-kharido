@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { Product } from '../types';
 import { SafeImage } from './SafeImage';
-import { getProductGalleryImages, isValidMediaUrl } from '../utils/mediaUtils';
+import { getProductGalleryImages, isValidMediaUrl, normalizeAffiliateUrl } from '../utils/mediaUtils';
 
 interface ProductDetailViewProps {
   product: Product;
@@ -44,6 +44,14 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
   const [showToast, setShowToast] = useState(false);
   const [videoTab, setVideoTab] = useState<'video' | 'youtube'>(product.videoUrl ? 'video' : 'youtube');
   const [videoError, setVideoError] = useState(false);
+
+  const primaryAffiliateUrl = useMemo(() => {
+    const raw = product.affiliateLink || 
+      product.affiliateUrl || 
+      product.platformLinks?.find(p => p.isPrimary)?.url ||
+      product.platformLinks?.[0]?.url;
+    return normalizeAffiliateUrl(raw, product.name);
+  }, [product]);
 
   const safeIndex = activeImageIndex < images.length ? activeImageIndex : 0;
 
@@ -283,7 +291,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
             {/* PRIMARY AFFILIATE CTA - NO PRICE DISPLAYED EVER */}
             <div className="pt-2 space-y-3">
               <a
-                href={product.affiliateLink}
+                href={primaryAffiliateUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full py-4 px-6 rounded-2xl amazon-cta-btn flex items-center justify-center gap-2 text-base font-black shadow-lg cursor-pointer"
@@ -305,7 +313,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
                     {product.platformLinks.map((link) => (
                       <a
                         key={link.id}
-                        href={link.url}
+                        href={normalizeAffiliateUrl(link.url, `${product.name} ${link.platform}`)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="px-3.5 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-bold transition-all inline-flex items-center gap-1.5 shadow-xs"

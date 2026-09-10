@@ -2,6 +2,10 @@ import { UserProfile } from '../types';
 
 const USERS_STORAGE_KEY = 'jyada_kharido_users';
 const CURRENT_USER_KEY = 'jyada_kharido_session';
+const ADMIN_PASSWORD_KEY = 'jyada_kharido_admin_pwd';
+
+// Default Admin Password requested by user: Aman3636@
+export const DEFAULT_ADMIN_PASSWORD = 'Aman3636@';
 
 // SHA-256 hashing helper for the custom "Trusted Contact Name" recovery mechanism
 export async function hashSecret(input: string): Promise<string> {
@@ -45,6 +49,19 @@ const SEED_USERS: UserProfile[] = [
 ];
 
 export class AuthService {
+  public static getAdminPassword(): string {
+    const saved = localStorage.getItem(ADMIN_PASSWORD_KEY);
+    return saved && saved.trim() ? saved.trim() : DEFAULT_ADMIN_PASSWORD;
+  }
+
+  public static setAdminPassword(newPassword: string): boolean {
+    if (!newPassword || newPassword.trim().length < 6) {
+      return false;
+    }
+    localStorage.setItem(ADMIN_PASSWORD_KEY, newPassword.trim());
+    return true;
+  }
+
   private static getUsers(): UserProfile[] {
     const raw = localStorage.getItem(USERS_STORAGE_KEY);
     let list: UserProfile[] = [];
@@ -87,46 +104,51 @@ export class AuthService {
 
   public static getCurrentUser(): UserProfile | null {
     const raw = localStorage.getItem(CURRENT_USER_KEY);
-    if (!raw) {
-      // Default to authorized store administrator so the owner/developer is never locked out of the CMS
-      const defaultAdmin = SEED_USERS[0];
-      try {
-        localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(defaultAdmin));
-      } catch {}
-      return defaultAdmin;
-    }
-    if (raw === 'guest') {
+    // If no active session or marked as guest, user is unauthenticated (guest mode)
+    if (!raw || raw === 'guest') {
       return null;
     }
     try {
       const user: UserProfile = JSON.parse(raw);
-      // If user's email matches admin email, ensure admin role
       if (
         user && 
         (user.email.toLowerCase() === 'aksingh020709@gmail.com' || 
-         user.email.toLowerCase() === 'admin@jyadakharido.com' ||
-         user.email.toLowerCase().includes('admin'))
+         user.email.toLowerCase() === 'admin@jyadakharido.com')
       ) {
         user.role = 'admin';
       }
       return user;
     } catch {
-      return SEED_USERS[0];
+      return null;
     }
-  }
-
-  public static quickAdminLogin(): UserProfile {
-    const adminUser = this.getUsers().find(u => u.email.toLowerCase() === 'aksingh020709@gmail.com') || SEED_USERS[0];
-    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(adminUser));
-    return adminUser;
   }
 
   public static async login(email: string, password?: string): Promise<{ success: boolean; user?: UserProfile; error?: string }> {
     const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = (password || '').trim();
     const users = this.getUsers();
     
-    // Check if matching admin email
-    if (cleanEmail === 'aksingh020709@gmail.com' || cleanEmail === 'admin@jyadakharido.com' || cleanEmail === 'admin') {
+    const isAdminEmail = 
+      cleanEmail === 'aksingh020709@gmail.com' || 
+      cleanEmail === 'admin@jyadakharido.com' || 
+      cleanEmail === 'admin';
+
+    // Check if user is attempting admin login
+    if (isAdminEmail) {
+      const expectedPassword = this.getAdminPassword();
+      if (!cleanPassword) {
+        return { 
+          success: false, 
+          error: 'Password required. Please enter your Developer/Admin password to access Developer Mode.' 
+        };
+      }
+      if (cleanPassword !== expectedPassword) {
+        return { 
+          success: false, 
+          error: 'Incorrect admin password. Access denied.' 
+        };
+      }
+
       const admin = users.find(u => u.email.toLowerCase() === 'aksingh020709@gmail.com') || SEED_USERS[0];
       admin.role = 'admin';
       localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(admin));
@@ -136,11 +158,11 @@ export class AuthService {
     let user = users.find(u => u.email.toLowerCase() === cleanEmail);
     
     if (!user) {
-      // If user typed a custom email to access admin portal, automatically register them as admin
+      // Standard customer account
       user = {
-        uid: 'admin-' + Date.now(),
+        uid: 'user-' + Date.now(),
         email: cleanEmail,
-        role: 'admin',
+        role: 'customer',
         trustedContactHash: '',
         wishlist: [],
         createdAt: new Date().toISOString()
@@ -158,7 +180,7 @@ export class AuthService {
     email: string, 
     password: string, 
     trustedContactName: string,
-    role: 'customer' | 'admin' = 'admin'
+    role: 'customer' | 'admin' = 'customer'
   ): Promise<{ success: boolean; user?: UserProfile; error?: string }> {
     const users = this.getUsers();
     const trimmedEmail = email.trim().toLowerCase();
@@ -169,11 +191,10 @@ export class AuthService {
 
     const trustedContactHash = trustedContactName.trim() ? await hashSecret(trustedContactName) : '';
     
-    // Default to admin for seamless console management
     const newUser: UserProfile = {
       uid: 'user-' + Date.now(),
       email: trimmedEmail,
-      role: 'admin',
+      role: trimmedEmail === 'aksingh020709@gmail.com' ? 'admin' : role,
       trustedContactHash,
       wishlist: [],
       createdAt: new Date().toISOString()
@@ -192,14 +213,15 @@ export class AuthService {
     trustedContactName: string,
     newPassword: string
   ): Promise<{ success: boolean; message?: string; error?: string }> {
+    const cleanEmail = email.trim().toLowerCase();
     const users = this.getUsers();
-    const user = users.find(u => u.email.toLowerCase() === email.trim().toLowerCase());
+    const user = users.find(u => u.email.toLowerCase() === cleanEmail);
 
     if (!user) {
       return { success: false, error: 'No account exists for this email.' };
     }
 
-    if (!newPassword || newPassword.length < 6) {
+    if (!newPassword || newPassword.trim().length < 6) {
       return { success: false, error: 'New password must be at least 6 characters.' };
     }
 
@@ -210,6 +232,11 @@ export class AuthService {
         success: false, 
         error: 'The Trusted Contact Name does not match our records. Please try again or contact support.' 
       };
+    }
+
+    // If this is an admin user, update the master admin password
+    if (user.role === 'admin' || cleanEmail === 'aksingh020709@gmail.com') {
+      this.setAdminPassword(newPassword.trim());
     }
 
     // Password reset verified & successful

@@ -16,6 +16,7 @@ import { Logo } from './Logo';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile, Festival, SiteSettings } from '../types';
 import { AuthService } from '../services/authService';
+import { normalizeAffiliateUrl } from '../utils/mediaUtils';
 
 interface NavbarProps {
   currentUser: UserProfile | null;
@@ -44,7 +45,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
 
-  const amazonUrl = settings?.amazonStoreUrl || 'https://link.amazon/B012S1jyj';
+  const rawAmazonUrl = settings?.amazonStoreUrl || 'https://www.amazon.in/?tag=jyadakharido-21';
+  const amazonUrl = normalizeAffiliateUrl(rawAmazonUrl);
 
   useEffect(() => {
     const handleScroll = () => {

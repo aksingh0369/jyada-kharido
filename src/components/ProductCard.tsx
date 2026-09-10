@@ -3,7 +3,7 @@ import { Heart, ExternalLink, Eye, ShoppingBag } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Product } from '../types';
 import { SafeImage } from './SafeImage';
-import { getProductImage } from '../utils/mediaUtils';
+import { getProductImage, normalizeAffiliateUrl } from '../utils/mediaUtils';
 
 interface ProductCardProps {
   product: Product;
@@ -19,12 +19,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   onViewDetails
 }) => {
   const displayImage = getProductImage(product);
-  const primaryAffiliateUrl = 
+  const rawAffiliate = 
     product.affiliateLink || 
     product.affiliateUrl || 
     product.platformLinks?.find(p => p.isPrimary)?.url ||
-    product.platformLinks?.[0]?.url ||
-    'https://www.amazon.in/?tag=jyadakharido-21';
+    product.platformLinks?.[0]?.url;
+  const primaryAffiliateUrl = normalizeAffiliateUrl(rawAffiliate, product.name);
 
   return (
     <motion.div 

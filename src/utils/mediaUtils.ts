@@ -350,3 +350,30 @@ export function logMediaError(context: {
     );
   }
 }
+
+/**
+ * Normalizes an affiliate or outbound store link:
+ * - Ensures valid protocol (https://) so relative domain navigation doesn't happen
+ * - Handles shortened Amazon links or domain-less links
+ * - Falls back to a clean Amazon India search for the product/category if link is empty or dead
+ */
+export function normalizeAffiliateUrl(url?: string | null, fallbackQuery?: string): string {
+  const fallback = fallbackQuery 
+    ? `https://www.amazon.in/s?k=${encodeURIComponent(fallbackQuery)}&tag=jyadakharido-21`
+    : 'https://www.amazon.in/?tag=jyadakharido-21';
+
+  if (!url || typeof url !== 'string') {
+    return fallback;
+  }
+  let trimmed = url.trim();
+  if (trimmed === '' || trimmed === '#' || trimmed === 'undefined' || trimmed === 'null') {
+    return fallback;
+  }
+
+  // Prepend protocol if missing
+  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+    trimmed = 'https://' + trimmed;
+  }
+
+  return trimmed;
+}

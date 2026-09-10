@@ -133,30 +133,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
             </p>
           </div>
 
-          {/* 1-CLICK ADMIN QUICK ACCESS */}
-          <div className="mb-5 p-3.5 bg-gradient-to-r from-rose-50 to-orange-50 rounded-2xl border border-rose-200">
+          {/* Restricted Admin Notice */}
+          <div className="mb-5 p-3.5 bg-gray-50 rounded-2xl border border-gray-200">
             <div className="flex items-center justify-between mb-1.5">
               <div className="flex items-center gap-1.5 text-xs font-black text-gray-900 uppercase">
                 <ShieldCheck className="w-4 h-4 text-[#F52D56]" />
-                <span>Store Owner & Administrator</span>
+                <span>Protected Developer Access</span>
               </div>
-              <span className="px-2 py-0.5 rounded-full bg-[#F52D56] text-white text-[10px] font-bold">Admin</span>
+              <span className="px-2 py-0.5 rounded-full bg-gray-900 text-white text-[10px] font-bold">Password Required</span>
             </div>
-            <p className="text-[11px] text-gray-600 mb-3">
-              One-click instant authentication as <strong>aksingh020709@gmail.com</strong> with full CMS access.
+            <p className="text-[11px] text-gray-600">
+              Developer mode is restricted. Authorized administrators must authenticate with the official email and secure password.
             </p>
-            <button
-              type="button"
-              onClick={() => {
-                const admin = AuthService.quickAdminLogin();
-                onLoginSuccess(admin);
-                onClose();
-              }}
-              className="w-full py-2.5 px-4 rounded-xl bg-[#F52D56] hover:bg-[#D82C4A] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm hover:shadow transition-all cursor-pointer hover:scale-[1.01] active:scale-[0.98]"
-            >
-              <ShieldCheck className="w-4 h-4" />
-              <span>⚡ 1-Click Sign In as Admin</span>
-            </button>
           </div>
 
           {/* Error Message */}
@@ -213,7 +201,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter password or leave blank for admin"
+                    placeholder="Enter password (e.g. Aman3636@ for admin)"
                     className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#F52D56] focus:bg-white"
                   />
                 </div>

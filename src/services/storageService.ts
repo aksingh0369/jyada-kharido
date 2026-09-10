@@ -62,9 +62,9 @@ export class StorageService {
     // Ensure every single product has a valid unique ID and normalized media
     let hadBaselineUpdate = false;
     list = list.map((p, i) => {
-      let affiliateLink = p.affiliateLink;
-      if (p.id === 'prod-beats-solo-4' && p.affiliateLink !== 'https://link.amazon/B06cXgVyp') {
-        affiliateLink = 'https://link.amazon/B06cXgVyp';
+      let affiliateLink = p.affiliateLink || 'https://www.amazon.in/?tag=jyadakharido-21';
+      if (p.id === 'prod-beats-solo-4' && (!p.affiliateLink || p.affiliateLink === 'https://link.amazon/B06cXgVyp')) {
+        affiliateLink = 'https://www.amazon.in/s?k=beats+solo+4+wireless+headphones&tag=jyadakharido-21';
         hadBaselineUpdate = true;
       }
 
@@ -450,11 +450,6 @@ export class StorageService {
     }
     try {
       const parsed = JSON.parse(raw);
-      // Migrate or apply user's affiliate link if missing or old demo URL
-      if (!parsed.amazonStoreUrl || parsed.amazonStoreUrl.includes('jyadakharido-21') || parsed.amazonStoreUrl.includes('B0eiXrBNR')) {
-        parsed.amazonStoreUrl = 'https://link.amazon/B012S1jyj';
-        localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...INITIAL_SITE_SETTINGS, ...parsed }));
-      }
       return { 
         ...INITIAL_SITE_SETTINGS, 
         ...parsed,

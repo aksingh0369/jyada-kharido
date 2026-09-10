@@ -29,6 +29,7 @@ import { SearchModal } from './components/SearchModal';
 import { AuthModal } from './components/AuthModal';
 import { DeveloperDashboard } from './components/DeveloperDashboard';
 import { AiAssistantModal } from './components/AiAssistantModal';
+import { SEOHead } from './components/SEOHead';
 
 import { Product, Category, Festival, Blog, SiteSettings, UserProfile } from './types';
 import { StorageService } from './services/storageService';
@@ -204,6 +205,14 @@ export default function App() {
   return (
     <div className={`min-h-screen flex flex-col bg-[#FAFBFD] text-gray-900 font-sans selection:bg-[#F52D56] selection:text-white ${festivalThemeClass}`}>
       
+      {/* Dynamic SEO, Canonical URLs, and Schema.org Product JSON-LD */}
+      <SEOHead 
+        product={currentPage === 'product-detail' ? selectedProduct : null}
+        category={currentPage === 'category-detail' ? selectedCategory : null}
+        currentPage={currentPage}
+        settings={settings}
+      />
+
       {/* Universal Top Navigation */}
       <Navbar
         currentUser={currentUser}
@@ -253,29 +262,18 @@ export default function App() {
               </p>
               <div className="flex flex-col gap-2.5 pt-2">
                 <button
-                  onClick={() => {
-                    const admin = AuthService.quickAdminLogin();
-                    setCurrentUser(admin);
-                  }}
+                  onClick={() => setAuthOpen(true)}
                   className="w-full py-3 px-4 rounded-xl bg-[#F52D56] hover:bg-[#D82C4A] text-white text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-md hover:scale-[1.01] active:scale-[0.99] transition-all"
                 >
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>⚡ 1-Click Sign In as Admin</span>
+                  <Lock className="w-4 h-4" />
+                  <span>Enter Admin Password to Unlock</span>
                 </button>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => navigate('home')}
-                    className="flex-1 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold cursor-pointer transition-colors"
-                  >
-                    Return Home
-                  </button>
-                  <button
-                    onClick={() => setAuthOpen(true)}
-                    className="flex-1 py-2.5 rounded-xl bg-gray-900 hover:bg-black text-white text-xs font-bold cursor-pointer transition-colors"
-                  >
-                    Sign In with Email
-                  </button>
-                </div>
+                <button
+                  onClick={() => navigate('home')}
+                  className="w-full py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold cursor-pointer transition-colors"
+                >
+                  Return to Store
+                </button>
               </div>
             </div>
           )

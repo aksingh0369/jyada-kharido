@@ -119,7 +119,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     shortDescription: 'Custom acoustic architecture with upgraded drivers for powerful, balanced Beats sound and spatial audio.',
     description: 'Engineered for music, Beats Solo 4 features re-engineered acoustics, ultra-lightweight design with UltraPlush cushions, up to 50 hours of battery life, lossless audio via USB-C or 3.5 mm cable, and Personalised Spatial Audio with dynamic head tracking.',
     discountPercent: 28,
-    affiliateLink: 'https://link.amazon/B06cXgVyp',
+    affiliateLink: 'https://www.amazon.in/s?k=beats+solo+4+wireless+headphones&tag=jyadakharido-21',
     primaryImage: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=900&auto=format&fit=crop&q=80',
     images: [
       'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=900&auto=format&fit=crop&q=80',
@@ -727,7 +727,7 @@ export const INITIAL_BLOGS: Blog[] = [
 export const INITIAL_SITE_SETTINGS: SiteSettings = {
   brandName: 'Jyada Kharido',
   tagline: 'Best Deals • Big Savings',
-  amazonStoreUrl: 'https://link.amazon/B012S1jyj',
+  amazonStoreUrl: 'https://www.amazon.in/?tag=jyadakharido-21',
   heroHeading: 'Wireless',
   heroSubheading: 'Beats Solo',
   heroDescription: 'Discover handpicked products across fashion, electronics, gadgets, and lifestyle with verified deals.',
