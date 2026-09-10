@@ -40,16 +40,48 @@ export const CATEGORY_PLACEHOLDER = `data:image/svg+xml;utf8,${encodeURIComponen
 `)}`;
 
 /**
- * Validates whether a URL is a usable, non-temporary media URL.
- * Strictly rejects undefined, null, empty strings, blob: and file: URLs.
+ * Normalizes any media URL (adds https:// if missing, handles //, trims whitespace)
+ */
+export function normalizeMediaUrl(url?: string | null): string {
+  if (!url || typeof url !== 'string') return '';
+  let trimmed = url.trim();
+  if (trimmed === '' || trimmed === 'undefined' || trimmed === 'null') return '';
+  if (trimmed.startsWith('//')) return 'https:' + trimmed;
+  if (
+    !trimmed.startsWith('http://') && 
+    !trimmed.startsWith('https://') && 
+    !trimmed.startsWith('data:') && 
+    !trimmed.startsWith('blob:') && 
+    !trimmed.startsWith('/')
+  ) {
+    if (trimmed.includes('.') && !trimmed.startsWith('.')) {
+      return 'https://' + trimmed;
+    }
+  }
+  return trimmed;
+}
+
+/**
+ * Validates whether a URL is a usable media URL.
  */
 export function isValidMediaUrl(url?: string | null): boolean {
   if (!url || typeof url !== 'string') return false;
   const trimmed = url.trim();
   if (trimmed === '' || trimmed === 'undefined' || trimmed === 'null') return false;
-  if (trimmed.startsWith('blob:') || trimmed.startsWith('file:')) return false;
-  // Accepts https, http, base64 data URLs, or valid local assets
-  return trimmed.startsWith('https://') || trimmed.startsWith('http://') || trimmed.startsWith('data:image/');
+  if (
+    trimmed.startsWith('blob:') || 
+    trimmed.startsWith('data:') || 
+    trimmed.startsWith('/') || 
+    trimmed.startsWith('http://') || 
+    trimmed.startsWith('https://') || 
+    trimmed.startsWith('//')
+  ) {
+    return true;
+  }
+  if (/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/i.test(trimmed)) {
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -64,23 +96,23 @@ export function getProductImage(product?: Partial<Product> | null): string {
 
   // 1. primaryImage
   if (isValidMediaUrl(product.primaryImage)) {
-    return product.primaryImage!.trim();
+    return normalizeMediaUrl(product.primaryImage);
   }
 
   // 2. First valid item of images array
   if (Array.isArray(product.images) && product.images.length > 0) {
     for (const img of product.images) {
       if (isValidMediaUrl(img)) {
-        return img.trim();
+        return normalizeMediaUrl(img);
       }
     }
   }
 
   // 3. Legacy backward-compatible fields
   const legacyProduct = product as any;
-  if (isValidMediaUrl(legacyProduct.imageUrl)) return legacyProduct.imageUrl.trim();
-  if (isValidMediaUrl(legacyProduct.image)) return legacyProduct.image.trim();
-  if (isValidMediaUrl(legacyProduct.thumbnail)) return legacyProduct.thumbnail.trim();
+  if (isValidMediaUrl(legacyProduct.imageUrl)) return normalizeMediaUrl(legacyProduct.imageUrl);
+  if (isValidMediaUrl(legacyProduct.image)) return normalizeMediaUrl(legacyProduct.image);
+  if (isValidMediaUrl(legacyProduct.thumbnail)) return normalizeMediaUrl(legacyProduct.thumbnail);
 
   return PRODUCT_PLACEHOLDER;
 }
@@ -95,15 +127,15 @@ export function getProductGalleryImages(product?: Partial<Product> | null): stri
   const validImages: string[] = [];
   
   if (isValidMediaUrl(product.primaryImage)) {
-    validImages.push(product.primaryImage!.trim());
+    validImages.push(normalizeMediaUrl(product.primaryImage));
   }
 
   if (Array.isArray(product.images)) {
     for (const img of product.images) {
       if (isValidMediaUrl(img)) {
-        const trimmed = img.trim();
-        if (!validImages.includes(trimmed)) {
-          validImages.push(trimmed);
+        const normalized = normalizeMediaUrl(img);
+        if (!validImages.includes(normalized)) {
+          validImages.push(normalized);
         }
       }
     }
@@ -111,9 +143,9 @@ export function getProductGalleryImages(product?: Partial<Product> | null): stri
 
   const legacyProduct = product as any;
   if (validImages.length === 0) {
-    if (isValidMediaUrl(legacyProduct.imageUrl)) validImages.push(legacyProduct.imageUrl.trim());
-    else if (isValidMediaUrl(legacyProduct.image)) validImages.push(legacyProduct.image.trim());
-    else if (isValidMediaUrl(legacyProduct.thumbnail)) validImages.push(legacyProduct.thumbnail.trim());
+    if (isValidMediaUrl(legacyProduct.imageUrl)) validImages.push(normalizeMediaUrl(legacyProduct.imageUrl));
+    else if (isValidMediaUrl(legacyProduct.image)) validImages.push(normalizeMediaUrl(legacyProduct.image));
+    else if (isValidMediaUrl(legacyProduct.thumbnail)) validImages.push(normalizeMediaUrl(legacyProduct.thumbnail));
   }
 
   return validImages.length > 0 ? validImages : [PRODUCT_PLACEHOLDER];
@@ -130,12 +162,12 @@ export function getCategoryImage(category?: Partial<Category> | null): string {
   if (!category) return CATEGORY_PLACEHOLDER;
 
   const cat = category as any;
-  if (isValidMediaUrl(cat.imageUrl)) return cat.imageUrl.trim();
-  if (isValidMediaUrl(cat.image)) return cat.image.trim();
-  if (isValidMediaUrl(cat.photo)) return cat.photo.trim();
-  if (isValidMediaUrl(cat.thumbnail)) return cat.thumbnail.trim();
-  if (isValidMediaUrl(cat.coverImage)) return cat.coverImage.trim();
-  if (isValidMediaUrl(cat.icon) && cat.icon.startsWith('http')) return cat.icon.trim();
+  if (isValidMediaUrl(cat.imageUrl)) return normalizeMediaUrl(cat.imageUrl);
+  if (isValidMediaUrl(cat.image)) return normalizeMediaUrl(cat.image);
+  if (isValidMediaUrl(cat.photo)) return normalizeMediaUrl(cat.photo);
+  if (isValidMediaUrl(cat.thumbnail)) return normalizeMediaUrl(cat.thumbnail);
+  if (isValidMediaUrl(cat.coverImage)) return normalizeMediaUrl(cat.coverImage);
+  if (isValidMediaUrl(cat.icon)) return normalizeMediaUrl(cat.icon);
 
   return CATEGORY_PLACEHOLDER;
 }

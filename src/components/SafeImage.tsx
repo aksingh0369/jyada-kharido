@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   PRODUCT_PLACEHOLDER, 
   CATEGORY_PLACEHOLDER, 
   isValidMediaUrl, 
+  normalizeMediaUrl,
   logMediaError 
 } from '../utils/mediaUtils';
 
@@ -25,28 +26,30 @@ export const SafeImage: React.FC<SafeImageProps> = ({
   fallbackSrc,
   ...props
 }) => {
-  const defaultFallback = type === 'category' ? CATEGORY_PLACEHOLDER : PRODUCT_PLACEHOLDER;
+  const defaultFallback = type === 'category' 
+    ? 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=800&auto=format&fit=crop&q=80'
+    : 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&auto=format&fit=crop&q=80';
   const targetFallback = fallbackSrc || defaultFallback;
 
-  const initialSrc = isValidMediaUrl(src) ? src!.trim() : targetFallback;
-  const [currentSrc, setCurrentSrc] = useState<string>(initialSrc);
-  const [isLoaded, setIsLoaded] = useState<boolean>(false);
-  const [hasError, setHasError] = useState<boolean>(!isValidMediaUrl(src));
+  const normalized = isValidMediaUrl(src) ? normalizeMediaUrl(src) : targetFallback;
+  const [currentSrc, setCurrentSrc] = useState<string>(normalized || targetFallback);
+  const [hasError, setHasError] = useState<boolean>(false);
+  const imgRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
-    if (isValidMediaUrl(src)) {
-      setCurrentSrc(src!.trim());
+    const valid = isValidMediaUrl(src);
+    if (valid) {
+      const nextSrc = normalizeMediaUrl(src);
+      setCurrentSrc(nextSrc);
       setHasError(false);
-      setIsLoaded(false);
     } else {
       setCurrentSrc(targetFallback);
       setHasError(true);
-      setIsLoaded(true);
     }
   }, [src, targetFallback]);
 
   const handleError = () => {
-    if (!hasError) {
+    if (!hasError && currentSrc !== targetFallback) {
       logMediaError({
         type: type as 'product' | 'category' | 'banner' | 'video' | 'gallery',
         id: entityId,
@@ -54,12 +57,10 @@ export const SafeImage: React.FC<SafeImageProps> = ({
       });
       setHasError(true);
       setCurrentSrc(targetFallback);
-      setIsLoaded(true);
+    } else if (currentSrc === targetFallback) {
+      // If even the unsplash fallback fails, use the lightweight SVG placeholder
+      setCurrentSrc(type === 'category' ? CATEGORY_PLACEHOLDER : PRODUCT_PLACEHOLDER);
     }
-  };
-
-  const handleLoad = () => {
-    setIsLoaded(true);
   };
 
   const resolvedContainerClass = containerClassName !== undefined 
@@ -68,23 +69,16 @@ export const SafeImage: React.FC<SafeImageProps> = ({
 
   return (
     <div className={`relative overflow-hidden flex items-center justify-center ${resolvedContainerClass}`}>
-      {/* Loading Skeleton */}
-      {!isLoaded && !hasError && (
-        <div className="absolute inset-0 bg-gray-200/70 animate-pulse rounded-inherit" />
-      )}
-
       <img
+        ref={imgRef}
         src={currentSrc}
         alt={alt}
-        loading="lazy"
         referrerPolicy="no-referrer"
         onError={handleError}
-        onLoad={handleLoad}
-        className={`transition-opacity duration-300 ${
-          isLoaded ? 'opacity-100' : 'opacity-0'
-        } ${className}`}
+        className={className}
         {...props}
       />
     </div>
   );
 };
+

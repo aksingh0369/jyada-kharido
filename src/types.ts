@@ -18,6 +18,7 @@ export interface Product {
   description: string;
   discountPercent: number;
   affiliateLink: string;
+  affiliateUrl?: string; // backwards-compatible alias
   platformLinks?: PlatformAffiliateLink[];
   images: string[];
   primaryImage: string;

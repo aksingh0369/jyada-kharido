@@ -68,12 +68,23 @@ export class StorageService {
         hadBaselineUpdate = true;
       }
 
+      const baselineMatch = INITIAL_PRODUCTS.find(ip => ip.id === p.id);
+      let prodObj = { ...p };
+      if (
+        baselineMatch && 
+        (!prodObj.primaryImage || prodObj.primaryImage.includes('svg+xml') || prodObj.primaryImage.trim() === '')
+      ) {
+        prodObj.primaryImage = baselineMatch.primaryImage;
+        prodObj.images = baselineMatch.images;
+        hadBaselineUpdate = true;
+      }
+
       return {
-        ...p,
+        ...prodObj,
         affiliateLink,
         id: p.id && p.id.trim() !== '' ? p.id : ('prod-auto-' + Date.now() + '-' + i),
-        primaryImage: getProductImage(p),
-        images: getProductGalleryImages(p)
+        primaryImage: getProductImage(prodObj),
+        images: getProductGalleryImages(prodObj)
       };
     });
 
@@ -226,8 +237,12 @@ export class StorageService {
 
     // Normalizing media representation for every category record
     list = list.map(cat => {
-      const normalizedImg = getCategoryImage(cat);
       const initialMatch = INITIAL_CATEGORIES.find(ic => ic.id === cat.id || ic.slug === cat.slug);
+      let rawImg = cat.image || cat.imageUrl;
+      if ((!rawImg || rawImg.includes('svg+xml') || rawImg.trim() === '') && initialMatch) {
+        rawImg = initialMatch.image;
+      }
+      const normalizedImg = getCategoryImage({ ...cat, image: rawImg, imageUrl: rawImg });
       return {
         ...cat,
         image: normalizedImg,
