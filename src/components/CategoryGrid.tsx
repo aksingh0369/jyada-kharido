@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight, Edit3, Grid2X2, Plus, RectangleVertical, Sparkles } from 'lucide-react';
+import { ArrowRight, Edit3, Grid2X2, Plus, RectangleVertical, Sparkles, ShoppingBag, ExternalLink } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Category } from '../types';
 import { SafeImage } from './SafeImage';
@@ -151,22 +151,39 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
                   <span>{cat.shortLabel || 'Trending'}</span>
                 </span>
 
-                {isAdmin && onEditCategory && (
-                  <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onEditCategory(cat);
-                    }}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-400 hover:bg-amber-300 text-gray-950 text-[11px] font-black shadow-md transition-colors cursor-pointer z-20"
-                    title={`Edit ${cat.name} Category Settings`}
-                  >
-                    <Edit3 className="w-3 h-3 text-gray-900" />
-                    <span>Edit</span>
-                  </motion.button>
-                )}
+                <div className="flex items-center gap-1.5 z-20">
+                  {cat.affiliateLink && (
+                    <a
+                      href={cat.affiliateLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#FF9900] hover:bg-[#e68a00] text-gray-950 text-[10px] sm:text-[11px] font-black shadow-md transition-transform hover:scale-105 active:scale-95 cursor-pointer"
+                      title={`Direct open ${cat.name} deals on Amazon`}
+                    >
+                      <ShoppingBag className="w-3 h-3" />
+                      <span>Amazon</span>
+                      <ExternalLink className="w-2.5 h-2.5 opacity-80" />
+                    </a>
+                  )}
+
+                  {isAdmin && onEditCategory && (
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEditCategory(cat);
+                      }}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-400 hover:bg-amber-300 text-gray-950 text-[11px] font-black shadow-md transition-colors cursor-pointer"
+                      title={`Edit ${cat.name} Category Settings`}
+                    >
+                      <Edit3 className="w-3 h-3 text-gray-900" />
+                      <span>Edit</span>
+                    </motion.button>
+                  )}
+                </div>
               </div>
 
               {/* Bottom Content: Category Title & Browse Pill */}

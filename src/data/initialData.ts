@@ -13,6 +13,7 @@ export const INITIAL_CATEGORIES: Category[] = [
     accentColor: '#F52D56',
     displayOrder: 1,
     active: true,
+    affiliateLink: 'https://www.amazon.in/s?k=earphones+headphones&tag=jyadakharido-21',
     buttonText: 'Browse'
   },
   {
@@ -27,6 +28,7 @@ export const INITIAL_CATEGORIES: Category[] = [
     accentColor: '#18191B',
     displayOrder: 2,
     active: true,
+    affiliateLink: 'https://www.amazon.in/s?k=smartwatches+wearables&tag=jyadakharido-21',
     buttonText: 'Browse'
   },
   {
@@ -41,6 +43,7 @@ export const INITIAL_CATEGORIES: Category[] = [
     accentColor: '#FFFFFF',
     displayOrder: 3,
     active: true,
+    affiliateLink: 'https://www.amazon.in/s?k=laptops+notebooks&tag=jyadakharido-21',
     buttonText: 'Browse'
   },
   {
@@ -55,6 +58,7 @@ export const INITIAL_CATEGORIES: Category[] = [
     accentColor: '#EB3B5A',
     displayOrder: 4,
     active: true,
+    affiliateLink: 'https://www.amazon.in/s?k=gaming+consoles&tag=jyadakharido-21',
     buttonText: 'Browse'
   },
   {
@@ -69,6 +73,7 @@ export const INITIAL_CATEGORIES: Category[] = [
     accentColor: '#18191B',
     displayOrder: 5,
     active: true,
+    affiliateLink: 'https://www.amazon.in/s?k=vr+headsets&tag=jyadakharido-21',
     buttonText: 'Browse'
   },
   {
@@ -83,6 +88,7 @@ export const INITIAL_CATEGORIES: Category[] = [
     accentColor: '#FFFFFF',
     displayOrder: 6,
     active: true,
+    affiliateLink: 'https://www.amazon.in/s?k=smart+speakers+bluetooth&tag=jyadakharido-21',
     buttonText: 'Browse'
   },
   {
@@ -97,6 +103,7 @@ export const INITIAL_CATEGORIES: Category[] = [
     accentColor: '#FFFFFF',
     displayOrder: 7,
     active: true,
+    affiliateLink: 'https://www.amazon.in/s?k=trending+fashion+clothing&tag=jyadakharido-21',
     buttonText: 'Browse'
   }
 ];

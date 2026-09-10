@@ -51,6 +51,8 @@ export interface Category {
   accentColor: string;
   displayOrder: number;
   active: boolean;
+  videoUrl?: string; // MP4 / WebM video URL or uploaded video data
+  affiliateLink?: string; // Dedicated Amazon affiliate link for this category
   buttonText?: string;
 }
 

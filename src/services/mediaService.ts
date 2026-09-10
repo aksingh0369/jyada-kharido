@@ -212,6 +212,69 @@ export class MediaService {
   }
 
   /**
+   * Uploads a Category video to Firebase Storage (or local fallback).
+   * Path: categories/{categoryId}/video/{uniqueFileName}
+   */
+  public static async uploadCategoryVideo(
+    categoryId: string,
+    file: File,
+    onProgress?: (percent: number) => void
+  ): Promise<UploadResult> {
+    const val = validateVideoFile(file);
+    if (!val.valid) {
+      throw new Error(val.error || 'Video must be 50 MB or smaller.');
+    }
+
+    const storagePath = generateUniqueStoragePath('categories', categoryId || 'temp', file.name, 'video');
+    const storage = getFirebaseStorage();
+
+    if (storage && isFirebaseConfigured()) {
+      try {
+        const storageRef = ref(storage, storagePath);
+        const uploadTask = uploadBytesResumable(storageRef, file, {
+          contentType: file.type || 'video/mp4',
+          customMetadata: {
+            categoryId,
+            originalName: file.name
+          }
+        });
+
+        return new Promise<UploadResult>((resolve, reject) => {
+          uploadTask.on(
+            'state_changed',
+            (snapshot) => {
+              const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+              if (onProgress) onProgress(progress);
+            },
+            (error) => {
+              console.error('[MEDIA] Firebase category video upload error:', error);
+              reject(new Error(`Category video upload failed: ${error.message}`));
+            },
+            async () => {
+              try {
+                const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                if (onProgress) onProgress(100);
+                resolve({
+                  url: downloadURL,
+                  storagePath,
+                  fileName: file.name,
+                  size: file.size
+                });
+              } catch (urlErr) {
+                reject(urlErr);
+              }
+            }
+          );
+        });
+      } catch (err: any) {
+        console.warn('[MEDIA] Falling back to local category video processing:', err);
+      }
+    }
+
+    return this.fallbackDataUrlUpload(file, file, storagePath, onProgress);
+  }
+
+  /**
    * Safely deletes a file from Firebase Storage.
    */
   public static async deleteStorageFile(storagePathOrUrl: string): Promise<boolean> {

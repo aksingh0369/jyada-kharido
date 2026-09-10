@@ -227,10 +227,13 @@ export class StorageService {
     // Normalizing media representation for every category record
     list = list.map(cat => {
       const normalizedImg = getCategoryImage(cat);
+      const initialMatch = INITIAL_CATEGORIES.find(ic => ic.id === cat.id || ic.slug === cat.slug);
       return {
         ...cat,
         image: normalizedImg,
-        imageUrl: normalizedImg
+        imageUrl: normalizedImg,
+        videoUrl: cat.videoUrl || '',
+        affiliateLink: cat.affiliateLink || initialMatch?.affiliateLink || ''
       };
     });
 
@@ -256,7 +259,9 @@ export class StorageService {
         ...all[idx], 
         ...cat,
         image: resolvedImg,
-        imageUrl: resolvedImg
+        imageUrl: resolvedImg,
+        videoUrl: cat.videoUrl !== undefined ? cat.videoUrl : all[idx].videoUrl,
+        affiliateLink: cat.affiliateLink !== undefined ? cat.affiliateLink : all[idx].affiliateLink
       };
       all[idx] = saved;
     } else {
@@ -268,6 +273,8 @@ export class StorageService {
         description: cat.description || '',
         image: resolvedImg,
         imageUrl: resolvedImg,
+        videoUrl: cat.videoUrl || '',
+        affiliateLink: cat.affiliateLink || '',
         bgColor: cat.bgColor || '#18191B',
         textColor: cat.textColor || '#FFFFFF',
         accentColor: cat.accentColor || '#F52D56',

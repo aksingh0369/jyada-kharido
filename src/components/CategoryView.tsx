@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Filter, ArrowUpDown, ArrowLeft, Edit3 } from 'lucide-react';
+import { Filter, ArrowUpDown, ArrowLeft, Edit3, ShoppingBag, ExternalLink } from 'lucide-react';
 import { Category, Product } from '../types';
 import { ProductCard } from './ProductCard';
 import { SafeImage } from './SafeImage';
@@ -120,21 +120,33 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
           </div>
         )}
 
-        {/* Full Image Background with high-contrast gradient overlay */}
+        {/* Full Image / Video Background with high-contrast gradient overlay */}
         <div className="absolute inset-0 z-0 overflow-hidden">
-          <SafeImage
-            src={getCategoryImage(category)}
-            alt={category.name}
-            type="category"
-            entityId={category.id}
-            className="w-full h-full object-cover opacity-60 transform scale-105"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/70 to-black/30 pointer-events-none" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+          {category.videoUrl ? (
+            <video
+              src={category.videoUrl}
+              poster={getCategoryImage(category)}
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="w-full h-full object-cover opacity-65 transform scale-105"
+            />
+          ) : (
+            <SafeImage
+              src={getCategoryImage(category)}
+              alt={category.name}
+              type="category"
+              entityId={category.id}
+              className="w-full h-full object-cover opacity-60 transform scale-105"
+            />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/75 to-black/35 pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent pointer-events-none" />
         </div>
 
-        <div className="relative z-10 max-w-xl space-y-2">
-          <span className="text-xs font-extrabold uppercase tracking-widest text-[#F52D56] bg-black/40 backdrop-blur-xs px-3 py-1 rounded-full border border-white/10 inline-block">
+        <div className="relative z-10 max-w-xl space-y-2.5">
+          <span className="text-xs font-extrabold uppercase tracking-widest text-[#F52D56] bg-black/50 backdrop-blur-xs px-3 py-1 rounded-full border border-white/10 inline-block">
             {category.shortLabel || 'Curated Category'}
           </span>
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black uppercase tracking-tight text-white drop-shadow-md">
@@ -143,9 +155,26 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
           <p className="text-xs sm:text-sm font-medium text-gray-200 leading-relaxed drop-shadow-sm">
             {category.description || 'Explore our handpicked collection with live Amazon deals, verified reviews, and prime delivery.'}
           </p>
-          <p className="text-xs font-bold pt-1 text-gray-300">
-            {filteredProducts.length} Products Found
-          </p>
+
+          <div className="flex flex-wrap items-center gap-3 pt-2">
+            <span className="text-xs font-bold text-gray-300 bg-white/10 backdrop-blur-xs px-3 py-1 rounded-full border border-white/10">
+              {filteredProducts.length} Products Found
+            </span>
+
+            {category.affiliateLink && (
+              <a
+                href={category.affiliateLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-gradient-to-r from-[#FF9900] via-amber-400 to-[#FF9900] hover:brightness-110 text-gray-950 font-black text-xs shadow-lg transition-all transform hover:scale-105 active:scale-95 cursor-pointer border border-amber-300/60"
+                id={`btn-category-amazon-${category.id}`}
+              >
+                <ShoppingBag className="w-3.5 h-3.5" />
+                <span>Explore All {category.name} on Amazon</span>
+                <ExternalLink className="w-3 h-3 opacity-80" />
+              </a>
+            )}
+          </div>
         </div>
       </div>
 

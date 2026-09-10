@@ -18,6 +18,7 @@ import {
   ArrowDown,
   RotateCcw,
   Film,
+  Video,
   Activity,
   ShieldCheck,
   Link2,
@@ -114,6 +115,7 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
       : null
   );
   const [categoryImageProgress, setCategoryImageProgress] = useState<number | null>(null);
+  const [categoryVideoProgress, setCategoryVideoProgress] = useState<number | null>(null);
 
   // FESTIVAL STATE
   const [editingFestival, setEditingFestival] = useState<Festival | null>(null);
@@ -476,6 +478,32 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
     }
   };
 
+  const handleCategoryVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !editingCategory) return;
+
+    const catId = editingCategory.id || 'temp-' + Date.now();
+    setCategoryVideoProgress(15);
+
+    try {
+      const res = await MediaService.uploadCategoryVideo(
+        catId,
+        file,
+        (pct) => setCategoryVideoProgress(pct)
+      );
+      setEditingCategory({
+        ...editingCategory,
+        videoUrl: res.url
+      });
+      showNotification('Category background video uploaded successfully.');
+    } catch (err: any) {
+      showNotification(err.message || 'Category video upload failed', 'error');
+    } finally {
+      setCategoryVideoProgress(null);
+      e.target.value = '';
+    }
+  };
+
   const handleAddPlatformLink = () => {
     if (!newPlatformUrl.trim() || !editingProduct) {
       showNotification('Please enter an affiliate URL.', 'error');
@@ -523,12 +551,19 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
     const cleanSlug = (editingCategory.slug?.trim() || cleanName).toLowerCase().replace(/[^a-z0-9]+/g, '-');
     const cleanImg = (editingCategory.image?.trim() || editingCategory.imageUrl?.trim()) || 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=800&auto=format&fit=crop&q=80';
 
+    let cleanAffiliateLink = editingCategory.affiliateLink?.trim() || '';
+    if (cleanAffiliateLink && !cleanAffiliateLink.startsWith('http://') && !cleanAffiliateLink.startsWith('https://')) {
+      cleanAffiliateLink = 'https://' + cleanAffiliateLink;
+    }
+
     const catToSave = {
       ...editingCategory,
       name: cleanName,
       slug: cleanSlug,
       image: cleanImg,
       imageUrl: cleanImg,
+      videoUrl: editingCategory.videoUrl?.trim() || '',
+      affiliateLink: cleanAffiliateLink,
       shortLabel: editingCategory.shortLabel?.trim() || 'Explore',
       buttonText: editingCategory.buttonText?.trim() || 'Browse',
       bgColor: editingCategory.bgColor || '#18191B',
@@ -1956,6 +1991,119 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
                       })}
                       placeholder="https://... (Direct image URL or transparent PNG, optional)"
                       className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold"
+                    />
+                  </div>
+                </div>
+
+                {/* CATEGORY BACKGROUND VIDEO WITH FILE UPLOAD & LIVE PLAYER */}
+                <div className="p-4 bg-gray-50 rounded-2xl border border-gray-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <Video className="w-3.5 h-3.5 text-[#F52D56]" />
+                        <label className="block text-xs font-bold text-gray-900 uppercase">Category Presentation Video (Optional)</label>
+                      </div>
+                      <p className="text-[10px] text-gray-500">Upload an MP4/WebM video or paste a direct video link. The video will autoplay looped and muted on the category card!</p>
+                    </div>
+
+                    <label className="px-3 py-1.5 rounded-xl bg-white border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-100 flex items-center gap-1.5 cursor-pointer shadow-xs">
+                      <Upload className="w-3.5 h-3.5 text-gray-500" />
+                      <span>{categoryVideoProgress !== null ? `Uploading (${categoryVideoProgress}%)...` : 'Upload Video File'}</span>
+                      <input
+                        type="file"
+                        accept="video/mp4,video/webm,video/ogg"
+                        disabled={categoryVideoProgress !== null}
+                        onChange={handleCategoryVideoUpload}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+
+                  {categoryVideoProgress !== null && (
+                    <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                      <div 
+                        className="bg-[#F52D56] h-1.5 rounded-full transition-all duration-200"
+                        style={{ width: `${categoryVideoProgress}%` }}
+                      />
+                    </div>
+                  )}
+
+                  <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                    {editingCategory.videoUrl ? (
+                      <div className="relative group shrink-0">
+                        <video
+                          src={editingCategory.videoUrl}
+                          autoPlay
+                          loop
+                          muted
+                          playsInline
+                          className="w-32 h-20 rounded-xl object-cover border border-gray-300 bg-black shadow-inner"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setEditingCategory({ ...editingCategory, videoUrl: '' })}
+                          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-600 hover:bg-red-700 text-white flex items-center justify-center text-[10px] font-bold shadow-sm cursor-pointer"
+                          title="Remove video"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="w-32 h-20 rounded-xl bg-gray-200 border border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 shrink-0">
+                        <Film className="w-5 h-5 mb-0.5" />
+                        <span className="text-[9px] font-bold">No Video</span>
+                      </div>
+                    )}
+
+                    <div className="flex-1 w-full space-y-1">
+                      <input
+                        type="url"
+                        value={editingCategory.videoUrl || ''}
+                        onChange={(e) => setEditingCategory({ 
+                          ...editingCategory, 
+                          videoUrl: e.target.value
+                        })}
+                        placeholder="https://... (Direct MP4/WebM video URL or uploaded video)"
+                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold"
+                      />
+                      <p className="text-[10px] text-gray-400">
+                        Tip: Upload your own video file (up to 50MB) or provide any direct MP4 URL. If empty, the category image above will be used.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* CATEGORY AMAZON AFFILIATE LINK */}
+                <div className="p-4 bg-amber-50/70 rounded-2xl border border-amber-200 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <ShoppingBag className="w-3.5 h-3.5 text-[#FF9900]" />
+                      <label className="block text-xs font-bold text-gray-900 uppercase">
+                        Amazon Category Affiliate Link (Manual Setting)
+                      </label>
+                    </div>
+                    {editingCategory.affiliateLink && (
+                      <a
+                        href={editingCategory.affiliateLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[11px] font-bold text-amber-700 hover:text-amber-900 inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        <span>Test Link</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-gray-600">
+                    When visitors browse this category or click its Amazon button, they will be routed through your custom Amazon affiliate link.
+                  </p>
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="url"
+                      value={editingCategory.affiliateLink || ''}
+                      onChange={(e) => setEditingCategory({ ...editingCategory, affiliateLink: e.target.value })}
+                      placeholder="e.g. https://link.amazon/B06cXgVyp or https://www.amazon.in/s?k=fashion&tag=jyadakharido-21"
+                      className="flex-1 px-3 py-2 bg-white border border-amber-300 focus:border-amber-500 rounded-xl text-xs font-semibold"
                     />
                   </div>
                 </div>
